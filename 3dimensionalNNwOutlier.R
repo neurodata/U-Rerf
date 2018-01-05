@@ -1,8 +1,6 @@
 source('rfr_us.R')
 library(ggplot2)
-library(reshape2)
 library(scatterplot3d)
-
 
 # number of trees for forest
 numtrees <- 100
@@ -17,7 +15,7 @@ k = 10
 # create a sizeD by m synthetic dataset
 X <- matrix(sort(runif(m*sizeD)), nrow=sizeD, ncol=m)
 X <- (X + runif(m*sizeD)/10)
-X[500,1] <- (2*X[500,1]-X[300])/3
+X[500,1] <-X[500,1] + .15
 
 AkNN <- matrix(0, nrow=sizeD, ncol=sizeD)
 
@@ -48,6 +46,6 @@ nnzPts <- which(t(similarityMatrix[499:501,]) != 0)
 ssd <- data.frame(Distance = t(AkNN[499:501,])[nnzPts], Nearness = t(similarityMatrix[499:501,])[nnzPts])
 groupLabels <- c(rep("499",sizeD), rep("500", sizeD), rep("501",sizeD ))[nnzPts]
 ssd[["Sample"]] <- groupLabels
-ggplot(aes(x = Nearness, y = Distance, color = Sample), data = ssd) + geom_point()+ labs(title="Distance vs Nearness\nNoisy 3-D Line w/outlier, n=1000, d=3, k=10, trees=100\nThree Samples (0 Nearness Omitted)")+ geom_jitter()
+ggplot(aes(x = Nearness, y = Distance, color = Sample), data = ssd) + geom_point()+ labs(title="Distance vs Nearness\nNoisy 3-D Line w/outlier, n=1000, d=3, k=10, trees=100\nThree Samples (0 Nearness Omitted)\n500 is outlier")+ geom_jitter()
 dev.off()
 

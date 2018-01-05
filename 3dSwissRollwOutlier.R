@@ -1,6 +1,5 @@
 source('rfr_us.R')
 library(ggplot2)
-library(reshape2)
 library(scatterplot3d)
 
 # number of trees for forest
@@ -15,7 +14,7 @@ k = 10
 X <- swissRoll(sizeD/2, size =1, dim3=T)
 X <- as.matrix(X)[,2:4]
 X[500,2] <- -1.5
-X[500,3] <- 4
+X[500,3] <- 3.5
 X[500,1] <- 1
 
 AkNN <- matrix(0, nrow=sizeD, ncol=sizeD)
@@ -47,6 +46,6 @@ nnzPts <- which(t(similarityMatrix[499:501,]) != 0)
 ssd <- data.frame(Distance = t(AkNN[499:501,])[nnzPts], Nearness = t(similarityMatrix[499:501,])[nnzPts])
 groupLabels <- c(rep("499",sizeD), rep("500", sizeD), rep("501",sizeD ))[nnzPts]
 ssd[["Sample"]] <- groupLabels
-ggplot(aes(x = Nearness, y = Distance, color = Sample), data = ssd) + geom_point()+ labs(title="Distance vs Nearness\nSwiss Roll w/outlier, n=1000, d=3, k=10, trees=100\nThree Samples (0 Nearness Omitted)")+ geom_jitter()
+ggplot(aes(x = Nearness, y = Distance, color = Sample), data = ssd) + geom_point()+ labs(title="Distance vs Nearness\nSwiss Roll w/outlier, n=1000, d=3, k=10, trees=100\nThree Samples (0 Nearness Omitted)\n500 is outlier")+ geom_jitter()
 dev.off()
 

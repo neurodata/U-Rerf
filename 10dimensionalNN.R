@@ -1,8 +1,5 @@
 source('rfr_us.R')
 library(ggplot2)
-library(reshape2)
-library(scatterplot3d)
-
 
 # number of trees for forest
 numtrees <- 100
