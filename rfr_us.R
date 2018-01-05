@@ -581,11 +581,11 @@ rfrus <- cmpfun(rfrus)
 distNN <- cmpfun(distNN)
 
 
-createSimilarityMatrix <- function(X, numTrees=100, minParent=10){
+createSimilarityMatrix <- function(X, numTrees=100, K=10){
 numberSamples <- nrow(X)
 similarityMatrix <- matrix(0,nrow= numberSamples, ncol=numberSamples)
 
-forest <- invisible(rfrus(X,trees=numTrees, MinParent=minParent))
+forest <- invisible(rfrus(X,trees=numTrees, MinParent=K))
 
 for(z in 1:numberSamples){
     NN1 <- distNN(X[z,], X, forest)
@@ -598,7 +598,4 @@ for(z in 1:numberSamples){
 }
 return(similarityMatrix)
 }
-
-
-
 
