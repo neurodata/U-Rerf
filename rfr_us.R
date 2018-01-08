@@ -550,9 +550,10 @@ swissRoll <- function(n1, n2 = NULL, size = 6, dim3 = FALSE, rand_dist_fun = NUL
 ################################################################################
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#                     Spectral Cluster, doesn't work yet.
+#                     Hartigan's Method
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-specU <- function(distMat, numClust){
+findClusters <- function(nearnessMatrix, numClusters=3, numNearestNeighbors=10){
+    q <- rep(0,3)
     n <- nrow(distMat)
 
     D <- matrix(0L, nrow=n, ncol=n)
