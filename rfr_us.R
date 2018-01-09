@@ -553,19 +553,58 @@ swissRoll <- function(n1, n2 = NULL, size = 6, dim3 = FALSE, rand_dist_fun = NUL
 #                     Hartigan's Method
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 findClusters <- function(nearnessMatrix, numClusters=3, numNearestNeighbors=10){
-    q <- rep(0,3)
-    n <- nrow(distMat)
+    q <- rep(0,numClusters)
+    clusters <- vector("list", numClusters)
+    numSamples <- nrow(nearnessMatrix)
+    numNN <- numNearestNeighbors
 
-    D <- matrix(0L, nrow=n, ncol=n)
-    for(z in 1:n){
-        D[z,z] <- sum(distMat[z,])
+    randomOrdering <- sample(1:numSamples, numSamples)
+  #  randomOrdering <- 1:numSamples
+
+
+    step <- floor(numSamples/numClusters)
+    stepStart <- 1
+    stepEnd <- stepStart+step
+    for(z in 1:(numClusters-1)){
+        clusters[[z]] <- randomOrdering[stepStart:stepEnd]
+        stepStart <- stepEnd+1
+        stepEnd <- stepStart+step
     }
-    L <- D-distMat
+    clusters[[numClusters]] <- randomOrdering[stepStart:numSamples]
 
-    eigs <- eigen(t(L))
-    #return(eigs)
-    Y <- kmeans(eigs$vectors, numClust)$cluster
-    return(Y)        
+    for(z in 1:numSamples){
+        nearnessMatrix[z,z] <- 0
+    }
+
+    for(z in 1:numClusters){
+        for(m in clusters[[z]]){
+            biggestNN <- order(nearnessMatrix[m,], decreasing=TRUE)[1:numNN]
+            q[z] <- q[z] + sum(biggestNN%in%clusters[[z]])
+        }
+    }
+    print(paste("initial q", q))
+
+    currQ <- rep(0,numClusters)
+    for(p in 1:30){
+        for(z in 1:numClusters){
+            for(m in clusters[[z]]){
+                biggestNN <- order(nearnessMatrix[m,], decreasing=TRUE)[1:numNN]
+                for(k in 1:numClusters){
+                    currQ[k] <- sum(biggestNN%in%clusters[[k]])
+                }
+                QOrder <- order(currQ, decreasing=TRUE)
+                if(QOrder[1] != z){
+                    q[z] <- q[z] - currQ[z]
+                    q[QOrder[1]] <- q[QOrder[1]] + currQ[QOrder[1]]
+clusters[[z]] <- clusters[[z]][-which(clusters[[z]]==m)]
+clusters[[QOrder[1]]] <- c(clusters[[QOrder[1]]], m)
+                }
+            }
+        }
+    }
+
+    print(paste("after 1", q))
+    return(clusters)
 }
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
