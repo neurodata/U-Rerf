@@ -561,7 +561,6 @@ findClusters <- function(nearnessMatrix, numClusters=3, numNearestNeighbors=10){
     randomOrdering <- sample(1:numSamples, numSamples)
   #  randomOrdering <- 1:numSamples
 
-
     step <- floor(numSamples/numClusters)
     stepStart <- 1
     stepEnd <- stepStart+step
