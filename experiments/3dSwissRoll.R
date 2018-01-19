@@ -1,4 +1,4 @@
-source('rfr_us.R')
+source('../rfr_us.R')
 library(ggplot2)
 library(scatterplot3d)
 
@@ -27,7 +27,7 @@ similarityMatrix <- createSimilarityMatrix (X, numtrees, k)
 nnzPts <- which(similarityMatrix != 0)
 
 #create output
-pdf(file="3dswissDvN.pdf")
+pdf(file="../results/3dswissDvN.pdf")
 with(data.frame(X), {
    scatterplot3d(x2, x3, x1,        # x y and z axis
                  color="blue", pch=19, # filled blue circles

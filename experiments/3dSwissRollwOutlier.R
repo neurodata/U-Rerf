@@ -1,4 +1,4 @@
-source('rfr_us.R')
+source('../rfr_us.R')
 library(ggplot2)
 library(scatterplot3d)
 
@@ -29,7 +29,7 @@ similarityMatrix <- createSimilarityMatrix (X, numtrees, k)
 nnzPts <- which(similarityMatrix != 0)
 
 #create output
-pdf(file="3dswissDvNwOutlier.pdf")
+pdf(file="../results/3dswissDvNwOutlier.pdf")
 s3d <- scatterplot3d(X[c(1:499, 501:1000),2], X[c(1:499, 501:1000),3], X[c(1:499, 501:1000),1],        # x y and z axis
                  color="blue", pch=19, # filled blue circles
                  main="3-D Swiss Roll w/ Outlier",
