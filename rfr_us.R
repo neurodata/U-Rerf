@@ -325,29 +325,28 @@ dist <- function(X, Forest, maxDepth=0){
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #                    Find Potential Nearest Neighbors Vector
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-distNN <- function(y, X, Forest, maxDepth=0){
-    dist <- integer(nrow(X))
-
+distNN <- function(X, Forest){
     numT <- length(Forest)
-    if (maxDepth==0){
-        maxDepth <- Inf
-    }
-    for(j in 1:numT){
-        currentNode <- 1L
-        depth <- 1L
-        while(Forest[[j]]$Children[currentNode]!=0L && depth <= maxDepth){
-            s<-length(Forest[[j]]$matA[[currentNode]])/2
-            rotX <-sum(Forest[[j]]$matA[[currentNode]][(1:s)*2]*y[Forest[[j]]$matA[[currentNode]][(1:s)*2-1]])
-            if(rotX<=Forest[[j]]$CutPoint[currentNode]){
-                currentNode <- Forest[[j]]$Children[currentNode,1L]
-            }else{
-                currentNode <- Forest[[j]]$Children[currentNode,2L]
+    similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=nrow(X))
+
+    for(sampleNum in 1:nrow(X)){
+        for(j in 1:numT){
+            currentNode <- 1L
+            depth <- 1L
+            while(Forest[[j]]$Children[currentNode]!=0L){
+                s<-length(Forest[[j]]$matA[[currentNode]])/2
+                rotX <-sum(Forest[[j]]$matA[[currentNode]][(1:s)*2]*X[sampleNum,][Forest[[j]]$matA[[currentNode]][(1:s)*2-1]])
+                if(rotX<=Forest[[j]]$CutPoint[currentNode]){
+                    currentNode <- Forest[[j]]$Children[currentNode,1L]
+                }else{
+                    currentNode <- Forest[[j]]$Children[currentNode,2L]
+                }
+                depth <- depth+1L
             }
-            depth <- depth+1L
+            similarityMatrix[sampleNum, Forest[[j]]$ALeaf[[currentNode]]] <- similarityMatrix[sampleNum, Forest[[j]]$ALeaf[[currentNode]]] + 1
         }
-        dist[Forest[[j]]$ALeaf[[currentNode]]] <- dist[Forest[[j]]$ALeaf[[currentNode]]] + 1
     }
-    return(dist) #this is the similarity vector 
+    return(similarityMatrix) #this is the similarity vector 
 }
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -547,16 +546,17 @@ createSimilarityMatrix <- function(X, numTrees=100, K=10){
     similarityMatrix <- matrix(0,nrow= numberSamples, ncol=numberSamples)
 
     forest <- invisible(rfrus(X,trees=numTrees, MinParent=K))
+    similarityMatrix <- distNN(X, forest)
 
-    for(z in 1:numberSamples){
-        NN1 <- distNN(X[z,], X, forest)
-        similarityMatrix[z,] = NN1
+   # for(z in 1:numberSamples){
+   #     NN1 <- distNN(X[z,], X, forest)
+   #     similarityMatrix[z,] <- NN1
         #    for(q in 1:numberSamples){ #Why did I do this?
         #        if(NN1[q]==0){
         #            similarityMatrix[z,q]<-0
         #        }
         #    }
-    }
+   # }
     return(similarityMatrix)
 }
 

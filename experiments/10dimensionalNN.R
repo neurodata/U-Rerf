@@ -1,4 +1,4 @@
-source('rfr_us.R')
+source('../rfr_us.R')
 library(ggplot2)
 
 # number of trees for forest
@@ -25,7 +25,7 @@ similarityMatrix <- createSimilarityMatrix (X, numtrees, k)
 nnzPts <- which(similarityMatrix != 0)
 
 #create output
-pdf(file="10dimDvN.pdf")
+pdf(file="../results/10dimDvN.pdf")
 ssd <- data.frame(Distance = AkNN[nnzPts], Nearness = similarityMatrix[nnzPts])
 ggplot(aes(x = Nearness, y = Distance), data = ssd) + geom_point() + labs(title="Distance vs Nearness\n10-D Line, n=1000, d=10, k=10, trees=100\nThree Samples (0 Nearness Omitted)")
 
