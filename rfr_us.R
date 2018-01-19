@@ -1,70 +1,41 @@
+bestCutForFeature <- function(X){
+    minVal <- min(X)
+    maxVal <- max(X)
+    if(minVal == maxVal){ return(NULL)}
+    X <- sort(X)
+    normX <- (X-minVal)/(maxVal-minVal)
+
+    sumLeft <- 0
+    sumRight <- sum(normX)
+    errLeft <- 0
+    errRight <- 0 
+    meanLeft <- 0
+    meanRight <- 0
+    errCurr <- 0
+    minErr <- Inf
+    vectorLength <- length(X)
+    cutPoint <- NULL
+
+    for (m in 1:(vectorLength-1)){
+        sumLeft <- sumLeft + normX[m]
+        sumRight <- sumRight - normX[m]
+        meanLeft <- sumLeft/(m)
+        meanRight <- sumRight/(vectorLength-m)
+        errLeft <-sum((normX[1:m]-meanLeft)^2) 
+        errRight <-sum((normX[(m+1):vectorLength]-meanRight)^2) 
+
+        errCurr <- errLeft + errRight
+        # Determine if this split is currently the best option
+        if (errCurr < minErr){
+            cutPoint <- (X[m] + X[m+1])/2
+            minErr <- errCurr
+        }
+    }
+    return(c(cutPoint, minErr))
+}
+
+
 rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replacement=TRUE, FUN=makeA, options=c(ncol(X), round(ncol(X)^.5),1L, 1/ncol(X)), COOB=TRUE, Progress=TRUE){
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    # rfr builds a randomer classification forest structure made up of a list
-    # of trees.  This forest is randomer because each node is rotated before 
-    # being split (as described by Tyler Tomita).  Each tree is made of nodes
-    # which are numbered from left to right within a particular level (depth)
-    # of a tree.  The loop over nodes when considering splits is made in the
-    # same order as the numbering of the nodes. That is, nodes are traversed
-    # across a single level from left to right then moves to the left-most node
-    # of the next level.
-    #
-    #  INPUT:
-    #
-    # X is an n-by-p matrix, where rows represent observations and columns
-    # represent features
-    #
-    # Y is an n-by-1 array of integer class labels. Unique class labels
-    # must be contiguous and start from 1 (e.g. [0,1,2] is not okay;
-    # neither is [1,3,4])
-    #
-    # MinParent is an integer specifying the minimum number of observations
-    # a node must have in order for an attempt to split to be made.  Lower
-    # values may lead to overtraining and increased training time.
-    #
-    # trees is the number of trees that will be in the forest.
-    #
-    # MaxDepth is the maximum depth that a tree can grow to.  If set to "inf"
-    # then there is no maximum depth.  If set to 0 then a maximum depth is
-    # calculated based on the number of classes and number of samples provided.
-    #
-    # bagging is the percentage of training data to withhold during each
-    # training iteration.  If set to 0 then the entire training set is used
-    # during every iteration.  The withheld portion of the training data
-    # is used to calculate OOB error for the tree.
-    #
-    # ClassCt is the number of different classes in Y.  It is calculated 
-    # in the calling function to prevent recalculation by each forked function 
-    # when in parallel.
-    #
-    # FUN is the function used to create the projection matrix.  The matrix
-    # returned by this function should be a p-by-u matrix where p is the
-    # number of columns in the input matrix X and u is any integer > 0.
-    # u can also vary from node to node.
-    #
-    # options is a list of inputs to the user provided projection matrix
-    # creation function -- FUN.
-    #
-    # COOB is a boolean that determines whether or not OOB error is calculated.
-    # If bagging equals zero then COOB is ignored.  If bagging does not equal 
-    # zero and COOB is TRUE then OOB is calculated and printed to the screen.
-    #
-    # Progress is a boolean.  When true a progress marker is printed to the 
-    # screen every time a tree is grown.  This is useful for large input.
-    #
-    # OUTPUT:
-    #
-    # A forest construct made up of trees.  This forest can be used to make 
-    # predictions on new inputs.  When COOB=TRUE then the output is a list
-    # containing $forest and $OOBmat.  $forest is the forest structure and
-    # OOBmat is the OOB error for each tree.
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    # Predefine variables to prevent recreation during loops
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
     forest <- vector("list",trees)
     BV <- NA # vector in case of ties
     BS <- NA # vector in case of ties
@@ -121,7 +92,7 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
         NextUnusedNode <- 2L
         NodeStack <- 1L
         highestParent <- 1L
-    Assigned2Leaf <- vector("list", MaxNumNodes)
+        Assigned2Leaf <- vector("list", MaxNumNodes)
         ind[] <- 0L
         # Determine bagging set 
         # Assigned2Node is the set of row indices of X assigned to current node
@@ -143,106 +114,56 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
             Assigned2Node[[CurrentNode]]<-NA #remove saved indexes
             NdSize <- length(NodeRows[[1L]]) #determine node size
 
-            # create projection matrix (sparseM) by calling the custom function FUN
             sparseM <- FUN(options)
-            #isolate objective function
-                # if node is impure and large enough then attempt to find good split
-                if (NdSize < MinParent || NDepth[CurrentNode]==MaxDepth || NextUnusedNode+1L >= StopNode || NdSize == 1){
-Assigned2Leaf[[CurrentNode]] <- NodeRows[[1L]]
-                    NodeStack <- NodeStack[-1L]
-                    CurrentNode <- NodeStack[1L]
-                    if(is.na(CurrentNode)){
-                        break
-                    }
-                    next 
+
+            if (NdSize < MinParent || NDepth[CurrentNode]==MaxDepth || NextUnusedNode+1L >= StopNode || NdSize == 1){
+                Assigned2Leaf[[CurrentNode]] <- NodeRows[[1L]]
+                NodeStack <- NodeStack[-1L]
+                CurrentNode <- NodeStack[1L]
+                if(is.na(CurrentNode)){
+                    break
                 }
-                min_error <- Inf
-                    nBest <- 1L
-                for(q in unique(sparseM[,2])){
-                    #Project input into new space
-                    lrows <- which(sparseM[,2]==q)
-                    Xnode[1:NdSize] <- X[NodeRows[[1L]],sparseM[lrows,1], drop=FALSE]%*%sparseM[lrows,3, drop=FALSE]
-                    #Sort the projection, Xnode, and rearrange Y accordingly
-                    SortIdx[1:NdSize] <- sort(Xnode[1:NdSize] )
+                next 
+            }
+            min_error <- Inf
+            cut_val <- 1
+            BestVar <- 1 
 
-                    ##################################################################
-                    #                    Find Best Split
-                    ##################################################################
+            # nBest <- 1L
+            for(q in unique(sparseM[,2])){
+                #Project input into new space
+                lrows <- which(sparseM[,2]==q)
+                Xnode[1:NdSize] <- X[NodeRows[[1L]],sparseM[lrows,1], drop=FALSE]%*%sparseM[lrows,3, drop=FALSE]
+                #Sort the projection, Xnode, and rearrange Y accordingly
+                results <- bestCutForFeature(Xnode[1:NdSize])
+                if (is.null(results)) next
 
-                    # initialize variables for loop through projection
-# run the first iteration outside of the loop
-                    sumLeft <- 0
-                    sumRight <- sum(SortIdx[1:NdSize])
-                        errLeft <- 0
-                        errRight <-0 
-                       meanLeft <- 0
-                       meanRight <- 0
-                       errCurr <- 0
-                    for (m in 1:(NdSize-1)){
-                        sumLeft <- sumLeft + SortIdx[m]
-                        sumRight <- sumRight - SortIdx[m]
-                        meanLeft <- sumLeft/(m)
-                        meanRight <- sumRight/(NdSize-m)
-                        errLeft <-sum((SortIdx[1:m]-meanLeft)^2) 
-                        errRight <-sum((SortIdx[(m+1):NdSize]-meanRight)^2) 
-
-                        errCurr <- errLeft + errRight
-                        # Determine if this split is currently the best option
-                        if (errCurr <= min_error){
-                            # Save current best DeltaI
-                            if (min_error != errCurr){
-                                min_error <- errCurr
-                                nBest <- 1L
-                            }else{
-                                # Save all DeltaI equal to current max DeltaI
-                                nBest <- nBest + 1L
-                            }
-                            BV[nBest] <- q
-                            BS[nBest] <- SortIdx[m]+SortIdx[m+1]
-                        }
-                    }
-
-                    sumLeft <- sumLeft +SortIdx[NdSize]
-                        meanLeft <- sumLeft/NdSize
-errLeft <-sum((SortIdx[1:NdSize]-meanLeft)^2)
-                    errCurr <- errLeft
-
-                    if (errCurr <= min_error){
-                        # Save current best DeltaI
-                        if (min_error != errCurr){
-                            min_error <- errCurr
-                            nBest <- 1L
-                        }else{
-                            # Save all DeltaI equal to current max DeltaI
-                            nBest <- nBest + 1L
-                        }
-                        BV[nBest] <- q
-                        BS[nBest] <- SortIdx[NdSize]
-                    }
-                }#end loop through projections.
-
-                # If there were multiple best splits then randomly choose
-                # between the best.
-                if (nBest > 1L){
-                    # Break ties at random
-                    BestIdx <- ceiling(runif(1,0,nBest))
-                    BestVar <- BV[BestIdx]
-                    BestSplitIdx <- BS[BestIdx]/2
-                }else{
-                    BestVar <- BV[1L]
-                    BestSplitIdx <- BS[1L]/2
+                if(results[2] < min_error){
+                    cut_val <- results[1]
+                    min_error <- results[2]
+                    bestVar <- q
                 }
-                                # Recalculate the best projection
-                lrows<-which(sparseM[,2L]==BestVar)
-                Xnode[1:NdSize]<-X[NodeRows[[1L]],sparseM[lrows,1], drop=FALSE]%*%sparseM[lrows,3, drop=FALSE]
-            
-            # determine split value as mean of values on either side of split
-            BestSplitValue <- BestSplitIdx
+
+            }#end loop through projections.
+
+            if (min_error == Inf){
+                Assigned2Leaf[[CurrentNode]] <- NodeRows[[1L]]
+                NodeStack <- NodeStack[-1L]
+                CurrentNode <- NodeStack[1L]
+                if(is.na(CurrentNode)){
+                    break
+                }
+                next 
+            }
+
+            # Recalculate the best projection
+            lrows<-which(sparseM[,2L]==bestVar)
+            Xnode[1:NdSize]<-X[NodeRows[[1L]],sparseM[lrows,1], drop=FALSE]%*%sparseM[lrows,3, drop=FALSE]
 
             # find which child node each sample will go to and move
             # them accordingly
-# changed this from <= to < just in case best split split all values
-            MoveLeft <- Xnode[1:NdSize]  < BestSplitValue
+            # changed this from <= to < just in case best split split all values
+            MoveLeft <- Xnode[1:NdSize]  < cut_val
             numMove <- sum(MoveLeft)
 
             if (is.null(numMove)){
@@ -271,15 +192,16 @@ errLeft <-sum((SortIdx[1:NdSize]-meanLeft)^2)
                 NDepth[NextUnusedNode+1L]=NDepth[CurrentNode]+1L
                 # Pop the current node off the node stack
                 # this allows for a breadth first traversal
-Assigned2Leaf[[CurrentNode]] <- NodeRows[[1L]]
+                Assigned2Leaf[[CurrentNode]] <- NodeRows[[1L]]
                 NodeStack <- NodeStack[-1L]
                 NodeStack <- c(NextUnusedNode, NextUnusedNode+1L, NodeStack)
                 NextUnusedNode <- NextUnusedNode + 2L
                 # Store the projection matrix for the best split
-                matA[[CurrentNode]] <- as.integer(t(sparseM[which(sparseM[,2]==BestVar),c(1,3)]))
-                CutPoint[CurrentNode] <- BestSplitValue
+                matA[[CurrentNode]] <- as.integer(t(sparseM[which(sparseM[,2]==bestVar),c(1,3)]))
+                CutPoint[CurrentNode] <- cut_val
             }else{
                 # There wasn't a good split so ignore this node and move to the next
+                stop("Trying to move too many or not enough")
                 NodeStack <- NodeStack[-1L]
             }
             # Store ClassProbs for this node.
@@ -335,9 +257,9 @@ makeA <- function(options){
 }
 
 
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #                     Create Distance Matrix
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 dist <- function(X, Forest, maxDepth=0){
     n <- nrow(X)
     dist <- matrix(0, nrow=n, ncol=n)
@@ -345,55 +267,55 @@ dist <- function(X, Forest, maxDepth=0){
     numT <- length(Forest)
     currBin <- integer(n)
     if (maxDepth==0){
-    for(j in 1:numT){
-        for(i in 1:n){
-            currentNode <- 1L
-            while(Forest[[j]]$Children[currentNode]!=0L){
-                s<-length(Forest[[j]]$matA[[currentNode]])/2
-                rotX <-sum(Forest[[j]]$matA[[currentNode]][(1:s)*2]*X[i,Forest[[j]]$matA[[currentNode]][(1:s)*2-1]])
-                if(rotX<=Forest[[j]]$CutPoint[currentNode]){
-                    currentNode <- Forest[[j]]$Children[currentNode,1L]
-                }else{
-                    currentNode <- Forest[[j]]$Children[currentNode,2L]
+        for(j in 1:numT){
+            for(i in 1:n){
+                currentNode <- 1L
+                while(Forest[[j]]$Children[currentNode]!=0L){
+                    s<-length(Forest[[j]]$matA[[currentNode]])/2
+                    rotX <-sum(Forest[[j]]$matA[[currentNode]][(1:s)*2]*X[i,Forest[[j]]$matA[[currentNode]][(1:s)*2-1]])
+                    if(rotX<=Forest[[j]]$CutPoint[currentNode]){
+                        currentNode <- Forest[[j]]$Children[currentNode,1L]
+                    }else{
+                        currentNode <- Forest[[j]]$Children[currentNode,2L]
+                    }
                 }
-            }
-            dist[Forest[[j]]$ALeaf[[currentNode]]] <- dist[Forest[[j]]$ALeaf[[currentNode]]] + 1
+                dist[Forest[[j]]$ALeaf[[currentNode]]] <- dist[Forest[[j]]$ALeaf[[currentNode]]] + 1
                 for(z in 1:(i-1)){
                     if(currBin[z] == currentNode){
                         dist[i,z] <- dist[i,z]+1
                         dist[z,i] <- dist[z,i]+1
                     }
                 }
-            dist[i,i] <- dist[i,i]+1
+                dist[i,i] <- dist[i,i]+1
+            }
         }
-    }
     }else{
-for(j in 1:numT){
-        for(i in 1:n){
-            currentNode <- 1L
-            depth <- 1L
-            while(Forest[[j]]$Children[currentNode]!=0L && depth <= maxDepth){
-                s<-length(Forest[[j]]$matA[[currentNode]])/2
-                rotX <-sum(Forest[[j]]$matA[[currentNode]][(1:s)*2]*X[i,Forest[[j]]$matA[[currentNode]][(1:s)*2-1]])
-                if(rotX<=Forest[[j]]$CutPoint[currentNode]){
-                    currentNode <- Forest[[j]]$Children[currentNode,1L]
-                }else{
-                    currentNode <- Forest[[j]]$Children[currentNode,2L]
+        for(j in 1:numT){
+            for(i in 1:n){
+                currentNode <- 1L
+                depth <- 1L
+                while(Forest[[j]]$Children[currentNode]!=0L && depth <= maxDepth){
+                    s<-length(Forest[[j]]$matA[[currentNode]])/2
+                    rotX <-sum(Forest[[j]]$matA[[currentNode]][(1:s)*2]*X[i,Forest[[j]]$matA[[currentNode]][(1:s)*2-1]])
+                    if(rotX<=Forest[[j]]$CutPoint[currentNode]){
+                        currentNode <- Forest[[j]]$Children[currentNode,1L]
+                    }else{
+                        currentNode <- Forest[[j]]$Children[currentNode,2L]
+                    }
+                    depth <- depth+1L
                 }
-                depth <- depth+1L
-            }
-            currBin[i] <- currentNode
-            if(i>1){
-                for(z in 1:(i-1)){
-                    if(currBin[z] == currentNode){
-                        dist[i,z] <- dist[i,z]+1
-                        dist[z,i] <- dist[z,i]+1
+                currBin[i] <- currentNode
+                if(i>1){
+                    for(z in 1:(i-1)){
+                        if(currBin[z] == currentNode){
+                            dist[i,z] <- dist[i,z]+1
+                            dist[z,i] <- dist[z,i]+1
+                        }
                     }
                 }
+                dist[i,i] <- dist[i,i]+1
             }
-            dist[i,i] <- dist[i,i]+1
         }
-    }
     }
     return(dist)        
 }
@@ -411,19 +333,19 @@ distNN <- function(y, X, Forest, maxDepth=0){
         maxDepth <- Inf
     }
     for(j in 1:numT){
-            currentNode <- 1L
-            depth <- 1L
-            while(Forest[[j]]$Children[currentNode]!=0L && depth <= maxDepth){
-                s<-length(Forest[[j]]$matA[[currentNode]])/2
-                rotX <-sum(Forest[[j]]$matA[[currentNode]][(1:s)*2]*y[Forest[[j]]$matA[[currentNode]][(1:s)*2-1]])
-                if(rotX<=Forest[[j]]$CutPoint[currentNode]){
-                    currentNode <- Forest[[j]]$Children[currentNode,1L]
-                }else{
-                    currentNode <- Forest[[j]]$Children[currentNode,2L]
-                }
-                depth <- depth+1L
+        currentNode <- 1L
+        depth <- 1L
+        while(Forest[[j]]$Children[currentNode]!=0L && depth <= maxDepth){
+            s<-length(Forest[[j]]$matA[[currentNode]])/2
+            rotX <-sum(Forest[[j]]$matA[[currentNode]][(1:s)*2]*y[Forest[[j]]$matA[[currentNode]][(1:s)*2-1]])
+            if(rotX<=Forest[[j]]$CutPoint[currentNode]){
+                currentNode <- Forest[[j]]$Children[currentNode,1L]
+            }else{
+                currentNode <- Forest[[j]]$Children[currentNode,2L]
             }
-            dist[Forest[[j]]$ALeaf[[currentNode]]] <- dist[Forest[[j]]$ALeaf[[currentNode]]] + 1
+            depth <- depth+1L
+        }
+        dist[Forest[[j]]$ALeaf[[currentNode]]] <- dist[Forest[[j]]$ALeaf[[currentNode]]] + 1
     }
     return(dist) #this is the similarity vector 
 }
@@ -441,29 +363,29 @@ distNNk <- function(y, X, sv, k, adder){
         flush.console()
         return(NULL)
     }else{
-    remainingNN <- multiplier+k
+        remainingNN <- multiplier+k
     }
     simLength <- length(simCount)
     NNindex <- NULL
     while (remainingNN >0){
         if (remainingNN >= simCount[simLength]){
             if(simCount[simLength]>0){
-            NNindex <- c(NNindex, index[1:simCount[simLength]])
-            index <- index[-(1:simCount[simLength])]
-            remainingNN <- remainingNN-simCount[simLength]
+                NNindex <- c(NNindex, index[1:simCount[simLength]])
+                index <- index[-(1:simCount[simLength])]
+                remainingNN <- remainingNN-simCount[simLength]
             }
             simLength <- simLength -1
         }else{
-           #NNorder <- order(sqrt(rowSums((y-X[index[1:simCount[simLength]],])^2))) 
-           NNorder <- order(sqrt(rowSums(sweep(X[index[1:simCount[simLength]],],2,y)^2))) 
-NNindex <- c(NNindex, index[NNorder[1:remainingNN]])
-remainingNN = 0
+            #NNorder <- order(sqrt(rowSums((y-X[index[1:simCount[simLength]],])^2))) 
+            NNorder <- order(sqrt(rowSums(sweep(X[index[1:simCount[simLength]],],2,y)^2))) 
+            NNindex <- c(NNindex, index[NNorder[1:remainingNN]])
+            remainingNN = 0
         }
     }
     kNearest <- order(sqrt(rowSums(sweep(X[NNindex,],2,testSamples[1,])^2)))[1:k]
 
-    
-return(NNindex[kNearest])
+
+    return(NNindex[kNearest])
 }
 
 
@@ -507,44 +429,44 @@ CheckKmeans <- function(Y, Yp){
 #############################Swiss Roll Code###################################
 swissRoll <- function(n1, n2 = NULL, size = 6, dim3 = FALSE, rand_dist_fun = NULL, ...) {
 
-### If n2 is NULL, then generate a balanced dataset of size 2*n1
-     if (is.null(n2)) n2 <- n1
- xdim <- ifelse(dim3, 3, 2) 
-  ### GROUP 1 
-  # Generate Angles 
-  rho <- runif(n1, 0, size*pi)
-  # Create Swiss Roll
-  g1x1 <- rho*cos(rho)
-   g1x2 <- rho*sin(rho)
-   
-   ### GROUP 2
-   # Generate Angles
-   rho <- runif(n2, 0, size*pi)
+    ### If n2 is NULL, then generate a balanced dataset of size 2*n1
+    if (is.null(n2)) n2 <- n1
+    xdim <- ifelse(dim3, 3, 2) 
+    ### GROUP 1 
+    # Generate Angles 
+    rho <- runif(n1, 0, size*pi)
+    # Create Swiss Roll
+    g1x1 <- rho*cos(rho)
+    g1x2 <- rho*sin(rho)
+
+    ### GROUP 2
+    # Generate Angles
+    rho <- runif(n2, 0, size*pi)
     # Create Inverse Swiss Roll
     g2x1 <- -rho*cos(rho)
     g2x2 <- -rho*sin(rho)
-     
-     ### Generate the 3rd dimension
-     if (dim3) {
-          z_range <- range(c(g1x1, g1x2, g2x1, g2x2))
-     x3 <- runif(n1 + n2, z_range[1], z_range[2])
-      } 
-     
-     ### If needed random perturbation on the data
-     ### please specify the random generation funciton in R to 'rand_dist_fun'
-     ### and the corresponding parameters in '...'.
-     ### For example, 
-     ### rand_dist_fun = rnorm, mean = 0, sd = 0.2
-     err <- matrix(0, n1 + n2, xdim)
-      if (!is.null(rand_dist_fun)) err <- matrix(rand_dist_fun(xdim*(n1 + n2), ...), n1 + n2, xdim)
-      
-      ### Output the Swiss Roll dataset
-      if (dim3) {
-           out <- data.frame(y = c(rep(0:1, c(n1, n2))), x1 = c(g1x1, g2x1) + err[,1], x2 = c(g1x2, g2x2) + err[,2], x3 = x3 + err[,3])
-       } else {
-            out <- data.frame(y = c(rep(0:1, c(n1, n2))), x1 = c(g1x1, g2x1) + err[,1], x2 = c(g1x2, g2x2) + err[,2])
-        }
-       out
+
+    ### Generate the 3rd dimension
+    if (dim3) {
+        z_range <- range(c(g1x1, g1x2, g2x1, g2x2))
+        x3 <- runif(n1 + n2, z_range[1], z_range[2])
+    } 
+
+    ### If needed random perturbation on the data
+    ### please specify the random generation funciton in R to 'rand_dist_fun'
+    ### and the corresponding parameters in '...'.
+    ### For example, 
+    ### rand_dist_fun = rnorm, mean = 0, sd = 0.2
+    err <- matrix(0, n1 + n2, xdim)
+    if (!is.null(rand_dist_fun)) err <- matrix(rand_dist_fun(xdim*(n1 + n2), ...), n1 + n2, xdim)
+
+    ### Output the Swiss Roll dataset
+    if (dim3) {
+        out <- data.frame(y = c(rep(0:1, c(n1, n2))), x1 = c(g1x1, g2x1) + err[,1], x2 = c(g1x2, g2x2) + err[,2], x3 = x3 + err[,3])
+    } else {
+        out <- data.frame(y = c(rep(0:1, c(n1, n2))), x1 = c(g1x1, g2x1) + err[,1], x2 = c(g1x2, g2x2) + err[,2])
+    }
+    out
 }
 ################################################################################
 ################################################################################
@@ -559,7 +481,7 @@ findClusters <- function(nearnessMatrix, numClusters=3, numNearestNeighbors=10){
     numNN <- numNearestNeighbors
 
     randomOrdering <- sample(1:numSamples, numSamples)
-  #  randomOrdering <- 1:numSamples
+    #  randomOrdering <- 1:numSamples
 
     step <- floor(numSamples/numClusters)
     stepStart <- 1
@@ -595,8 +517,8 @@ findClusters <- function(nearnessMatrix, numClusters=3, numNearestNeighbors=10){
                 if(QOrder[1] != z){
                     q[z] <- q[z] - currQ[z]
                     q[QOrder[1]] <- q[QOrder[1]] + currQ[QOrder[1]]
-clusters[[z]] <- clusters[[z]][-which(clusters[[z]]==m)]
-clusters[[QOrder[1]]] <- c(clusters[[QOrder[1]]], m)
+                    clusters[[z]] <- clusters[[z]][-which(clusters[[z]]==m)]
+                    clusters[[QOrder[1]]] <- c(clusters[[QOrder[1]]], m)
                 }
             }
         }
@@ -621,20 +543,20 @@ distNN <- cmpfun(distNN)
 
 
 createSimilarityMatrix <- function(X, numTrees=100, K=10){
-numberSamples <- nrow(X)
-similarityMatrix <- matrix(0,nrow= numberSamples, ncol=numberSamples)
+    numberSamples <- nrow(X)
+    similarityMatrix <- matrix(0,nrow= numberSamples, ncol=numberSamples)
 
-forest <- invisible(rfrus(X,trees=numTrees, MinParent=K))
+    forest <- invisible(rfrus(X,trees=numTrees, MinParent=K))
 
-for(z in 1:numberSamples){
-    NN1 <- distNN(X[z,], X, forest)
-    similarityMatrix[z,] = NN1
-    for(q in 1:numberSamples){ #Why did I do this?
-        if(NN1[q]==0){
-            similarityMatrix[z,q]<-0
-        }
+    for(z in 1:numberSamples){
+        NN1 <- distNN(X[z,], X, forest)
+        similarityMatrix[z,] = NN1
+        #    for(q in 1:numberSamples){ #Why did I do this?
+        #        if(NN1[q]==0){
+        #            similarityMatrix[z,q]<-0
+        #        }
+        #    }
     }
-}
-return(similarityMatrix)
+    return(similarityMatrix)
 }
 
