@@ -3,12 +3,11 @@ bestCutForFeature <- function(X){
     maxVal <- max(X)
     if(minVal == maxVal){ return(NULL)}
     X <- sort(X)
-    normX <- (X-minVal)/(maxVal-minVal)
 
     sumLeft <- 0
-    sumRight <- sum(normX)
+    sumRight <- sum(X)
     errLeft <- 0
-    errRight <- 0 
+    errRight <- 0
     meanLeft <- 0
     meanRight <- 0
     errCurr <- 0
@@ -17,12 +16,12 @@ bestCutForFeature <- function(X){
     cutPoint <- NULL
 
     for (m in 1:(vectorLength-1)){
-        sumLeft <- sumLeft + normX[m]
-        sumRight <- sumRight - normX[m]
+        sumLeft <- sumLeft + X[m]
+        sumRight <- sumRight - X[m]
         meanLeft <- sumLeft/(m)
         meanRight <- sumRight/(vectorLength-m)
-        errLeft <-sum((normX[1:m]-meanLeft)^2) 
-        errRight <-sum((normX[(m+1):vectorLength]-meanRight)^2) 
+        errLeft <-sum((X[1:m]-meanLeft)^2)
+        errRight <-sum((X[(m+1):vectorLength]-meanRight)^2)
 
         errCurr <- errLeft + errRight
         # Determine if this split is currently the best option
@@ -32,6 +31,12 @@ bestCutForFeature <- function(X){
         }
     }
     return(c(cutPoint, minErr))
+}
+
+
+normalizeData <- function(X){
+    X <- sweep(X, 2, apply(X, 2, min))
+    sweep(X, 2, apply(X, 2, max), "/")
 }
 
 
@@ -45,6 +50,7 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
     BestVar <-0L 
     BestSplitIdx<-0L 
     BestSplitValue <- 0
+    X <- normalizeData(X)
     w <- nrow(X)
     p <- ncol(X)
     perBag <- (1-bagging)*w
