@@ -39,6 +39,17 @@ normalizeData <- function(X){
     sweep(X, 2, apply(X, 2, max), "/")
 }
 
+checkInputMatrix <- function(X){
+if(is.null(X)){
+stop("the input is null.")
+    }
+if(sum(is.na(X)) | sum(is.nan(X)) ){
+stop("some values are na or nan.")
+    }
+if(sum(colSums(X)==0) != 0){
+stop("some columns are all zero.")
+    }
+}
 
 rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replacement=TRUE, FUN=makeA, options=c(ncol(X), round(ncol(X)^.5),1L, 1/ncol(X)), COOB=TRUE, Progress=TRUE){
     forest <- vector("list",trees)
@@ -547,7 +558,9 @@ distNN <- cmpfun(distNN)
 
 
 createSimilarityMatrix <- function(X, numTrees=100, K=10){
+    checkInputMatrix(X)
     numberSamples <- nrow(X)
+    
     similarityMatrix <- matrix(0,nrow= numberSamples, ncol=numberSamples)
 
     X <- normalizeData(X)
@@ -555,15 +568,6 @@ createSimilarityMatrix <- function(X, numTrees=100, K=10){
     forest <- invisible(rfrus(X,trees=numTrees, MinParent=K))
     similarityMatrix <- distNN(X, forest)
 
-   # for(z in 1:numberSamples){
-   #     NN1 <- distNN(X[z,], X, forest)
-   #     similarityMatrix[z,] <- NN1
-        #    for(q in 1:numberSamples){ #Why did I do this?
-        #        if(NN1[q]==0){
-        #            similarityMatrix[z,q]<-0
-        #        }
-        #    }
-   # }
-    return(similarityMatrix)
+       return(similarityMatrix)
 }
 
