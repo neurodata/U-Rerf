@@ -50,7 +50,6 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
     BestVar <-0L 
     BestSplitIdx<-0L 
     BestSplitValue <- 0
-    X <- normalizeData(X)
     w <- nrow(X)
     p <- ncol(X)
     perBag <- (1-bagging)*w
@@ -550,6 +549,8 @@ distNN <- cmpfun(distNN)
 createSimilarityMatrix <- function(X, numTrees=100, K=10){
     numberSamples <- nrow(X)
     similarityMatrix <- matrix(0,nrow= numberSamples, ncol=numberSamples)
+
+    X <- normalizeData(X)
 
     forest <- invisible(rfrus(X,trees=numTrees, MinParent=K))
     similarityMatrix <- distNN(X, forest)
