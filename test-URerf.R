@@ -13,6 +13,10 @@ combinedFeature <- c(runif(10), runif(20)+2)
 result <- bestCutForFeature(combinedFeature)
 expect_equal(result[1], mean(sort(combinedFeature)[10:11]))
 expect_true(result[2] > 0)
+a <- 0
+b <- 10
+combinedFeature <- c(rep(a,20), rep(b,20))
+expect_equal(bestCutForFeature(combinedFeature), c((a+b)/2, 0))
 })
 
 

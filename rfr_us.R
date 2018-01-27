@@ -1,6 +1,7 @@
 require(compiler)
+setCompilerOptions(optimize=3)
 
-bestCutForFeature <- function(X){
+bestCutForFeature2 <- function(X){
     minVal <- min(X)
     maxVal <- max(X)
     if(minVal == maxVal){ return(NULL)}
@@ -35,6 +36,56 @@ bestCutForFeature <- function(X){
     return(c(cutPoint, minErr))
 }
 
+bestCutForFeature <- function(X){
+    minVal <- min(X)
+    maxVal <- max(X)
+    if(minVal == maxVal){ return(NULL)}
+    sizeX <- length(X)
+    #if(!sizeX){return(NULL)}
+    X <- sort(X[which(X!=0)])
+    sizeNNZ <- length(X)
+    sizeZ <- sizeX - sizeNNZ
+
+    sumLeft <- 0
+    sumRight <- sum(X)
+    errLeft <- 0
+    errRight <- 0
+    meanLeft <- 0
+    meanRight <- 0
+    errCurr <- 0
+    cutPoint <- NULL
+
+    if(sizeZ){
+    meanRight <- sumRight/sizeNNZ
+    minErr <- sum((X-meanRight)^2)
+    cutPoint <- X[1]/2
+    }else{
+minErr <- Inf
+    }
+
+    if(sizeNNZ-1){
+        index <- 1
+        for (m in X[1:(sizeNNZ-1)]){
+            leftsize <- sizeZ + index
+            rightsize <- sizeNNZ - index
+            sumLeft <- sumLeft + m
+            sumRight <- sumRight - m
+            meanLeft <- sumLeft/leftsize
+            meanRight <- sumRight/rightsize
+            errLeft <-sum((X[1:index]-meanLeft)^2) + sizeZ * (meanLeft^2)
+            errRight <-sum((X[(index+1):sizeNNZ]-meanRight)^2)
+
+            errCurr <- errLeft + errRight
+            # Determine if this split is currently the best option
+            if (errCurr < minErr){
+                cutPoint <- (X[index] + X[index+1])/2
+                minErr <- errCurr
+            }
+            index <- index+1
+        }
+    }
+    return(c(cutPoint, minErr))
+}
 
 normalizeData <- function(X){
     X <- sweep(X, 2, apply(X, 2, min))
