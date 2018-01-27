@@ -1,3 +1,5 @@
+require(compiler)
+
 bestCutForFeature <- function(X){
     minVal <- min(X)
     maxVal <- max(X)
@@ -552,9 +554,8 @@ specN <- function(distMat, numClust){
 }
 
 #############################################################################
-require(compiler)
-rfrus <- cmpfun(rfrus)
-distNN <- cmpfun(distNN)
+#rfrus <- cmpfun(rfrus)
+#distNN <- cmpfun(distNN)
 
 
 createSimilarityMatrix <- function(X, numTrees=100, K=10){
@@ -571,3 +572,5 @@ createSimilarityMatrix <- function(X, numTrees=100, K=10){
        return(similarityMatrix)
 }
 
+
+#createSimilarityMatrix <- cmpfun(createSimilarityMatrix)
