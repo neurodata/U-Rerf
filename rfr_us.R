@@ -394,9 +394,11 @@ dist <- function(X, Forest, maxDepth=0){
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #                    Find Potential Nearest Neighbors Vector
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-distNN <- function(X, Forest){
+#distNN <- function(X, Forest){
+distNN <- function(X, Forest, numSamps){
     numT <- length(Forest)
-    similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=nrow(X))
+    #similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=nrow(X))
+    similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=numSamps)
 
     for(sampleNum in 1:nrow(X)){
         for(j in 1:numT){
@@ -611,9 +613,8 @@ specN <- function(distMat, numClust){
 
 createSimilarityMatrix <- function(X, numTrees=100, K=10){
     checkInputMatrix(X)
-    numberSamples <- nrow(X)
-    
-    similarityMatrix <- matrix(0,nrow= numberSamples, ncol=numberSamples)
+   # numberSamples <- nrow(X)
+   # similarityMatrix <- matrix(0,nrow= numberSamples, ncol=numberSamples)
 
     X <- normalizeData(X)
 
