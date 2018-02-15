@@ -56,11 +56,11 @@ bestCutForFeature <- function(X){
     cutPoint <- NULL
 
     if(sizeZ){
-    meanRight <- sumRight/sizeNNZ
-    minErr <- sum((X-meanRight)^2)
-    cutPoint <- X[1]/2
+        meanRight <- sumRight/sizeNNZ
+        minErr <- sum((X-meanRight)^2)
+        cutPoint <- X[1]/2
     }else{
-minErr <- Inf
+        minErr <- Inf
     }
 
     if(sizeNNZ-1){
@@ -93,14 +93,14 @@ normalizeData <- function(X){
 }
 
 checkInputMatrix <- function(X){
-if(is.null(X)){
-stop("the input is null.")
+    if(is.null(X)){
+        stop("the input is null.")
     }
-if(sum(is.na(X)) | sum(is.nan(X)) ){
-stop("some values are na or nan.")
+    if(sum(is.na(X)) | sum(is.nan(X)) ){
+        stop("some values are na or nan.")
     }
-if(sum(colSums(X)==0) != 0){
-stop("some columns are all zero.")
+    if(sum(colSums(X)==0) != 0){
+        stop("some columns are all zero.")
     }
 }
 
@@ -394,11 +394,11 @@ dist <- function(X, Forest, maxDepth=0){
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #                    Find Potential Nearest Neighbors Vector
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#distNN <- function(X, Forest){
-distNN <- function(X, Forest, numSamps){
+distNN <- function(X, Forest){
+    #distNN <- function(X, Forest, numSamps){
     numT <- length(Forest)
-    #similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=nrow(X))
-    similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=numSamps)
+    similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=nrow(X))
+    #similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=numSamps)
 
     for(sampleNum in 1:nrow(X)){
         for(j in 1:numT){
@@ -613,16 +613,27 @@ specN <- function(distMat, numClust){
 
 createSimilarityMatrix <- function(X, numTrees=100, K=10){
     checkInputMatrix(X)
-   # numberSamples <- nrow(X)
-   # similarityMatrix <- matrix(0,nrow= numberSamples, ncol=numberSamples)
+    # numberSamples <- nrow(X)
+    # similarityMatrix <- matrix(0,nrow= numberSamples, ncol=numberSamples)
 
     X <- normalizeData(X)
 
     forest <- invisible(rfrus(X,trees=numTrees, MinParent=K))
     similarityMatrix <- distNN(X, forest)
 
-       return(similarityMatrix)
+    return(similarityMatrix)
 }
 
+createDistanceMatrix <- function(X, numTrees=100, K=10){
+    checkInputMatrix(X)
+    # numberSamples <- nrow(X)
+    # similarityMatrix <- matrix(0,nrow= numberSamples, ncol=numberSamples)
 
+    X <- normalizeData(X)
+
+    forest <- invisible(rfrus(X,trees=numTrees, MinParent=K))
+    similarityMatrix <- distNN(X, forest)
+
+    return(1+(similarityMatrix/(-1*numTrees)))
+}
 #createSimilarityMatrix <- cmpfun(createSimilarityMatrix)
