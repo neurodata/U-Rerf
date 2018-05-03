@@ -420,6 +420,70 @@ distNN <- function(X, Forest){
     return(similarityMatrix) #this is the similarity vector 
 }
 
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#                    Find Potential Nearest Neighbors Vector
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+distNN <- function(X, Forest){
+    #distNN <- function(X, Forest, numSamps){
+    numT <- length(Forest)
+    similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=nrow(X))
+    #similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=numSamps)
+
+    for(sampleNum in 1:nrow(X)){
+        for(j in 1:numT){
+            currentNode <- 1L
+            depth <- 1L
+            while(Forest[[j]]$Children[currentNode]!=0L){
+                s<-length(Forest[[j]]$matA[[currentNode]])/2
+                rotX <-sum(Forest[[j]]$matA[[currentNode]][(1:s)*2]*X[sampleNum,][Forest[[j]]$matA[[currentNode]][(1:s)*2-1]])
+                if(rotX<=Forest[[j]]$CutPoint[currentNode]){
+                    currentNode <- Forest[[j]]$Children[currentNode,1L]
+                }else{
+                    currentNode <- Forest[[j]]$Children[currentNode,2L]
+                }
+                depth <- depth+1L
+            }
+            similarityMatrix[sampleNum, Forest[[j]]$ALeaf[[currentNode]]] <- similarityMatrix[sampleNum, Forest[[j]]$ALeaf[[currentNode]]] + 1
+        }
+    }
+    return(similarityMatrix) #this is the similarity vector 
+}
+
+distNNRec <- function(X, Forest){
+	numT <- length(Forest)
+	simMatrix <- matrix(0,nrow=nrow(X) , ncol=nrow(X))
+
+	recursiveTreeTraversal <- function(currNode, elementsInNode, treeNum){
+		if(Forest[[treeNum]]$Children[currNode]==0L){
+			for(t in which(elementsInNode)){
+				for(m in which(elementsInNode)){
+					simMatrix[t,m] <<- simMatrix[t,m]+1
+				}
+			}
+			return()
+		}
+
+		s<-length(Forest[[treeNum]]$matA[[currNode]])/2
+		rotX <- apply(X[elementsInNode,Forest[[treeNum]]$matA[[currNode]][(1:s)*2-1], drop=FALSE], 1, function(x) sum(Forest[[treeNum]]$matA[[currNode]][(1:s)*2]*x))
+		moveLeft <- rotX<=Forest[[treeNum]]$CutPoint[currNode]
+
+		leftElements <- elementsInNode
+		leftElements[which(elementsInNode)[!moveLeft]] <- FALSE
+		recursiveTreeTraversal( Forest[[treeNum]]$Children[currNode,1L], leftElements, treeNum)
+
+		rightElements <- elementsInNode
+		rightElements[which(elementsInNode)[moveLeft]] <- FALSE
+		recursiveTreeTraversal( Forest[[treeNum]]$Children[currNode,2L], rightElements, treeNum)
+	}
+
+	for(j in 1:numT){
+		recursiveTreeTraversal(1L, rep(TRUE, nrow(X)), j)
+	}
+
+	return(simMatrix) #this is the similarity vector 
+}
+
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #                    Find Nearest Neighbors from similarity vector
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -619,9 +683,10 @@ createSimilarityMatrix <- function(X, numTrees=100, K=10){
     X <- normalizeData(X)
 
     forest <- invisible(rfrus(X,trees=numTrees, MinParent=K))
-    similarityMatrix <- distNN(X, forest)
+    similarityMatrix <- distNNRec(X, forest)
+    #similarityMatrix <- distNN(X, forest)
 
-    return(similarityMatrix)
+    return(similarityMatrix/numTrees)
 }
 
 createDistanceMatrix <- function(X, numTrees=100, K=10){
