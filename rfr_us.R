@@ -420,36 +420,6 @@ distNN <- function(X, Forest){
     return(similarityMatrix) #this is the similarity vector 
 }
 
-
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#                    Find Potential Nearest Neighbors Vector
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-distNN <- function(X, Forest){
-    #distNN <- function(X, Forest, numSamps){
-    numT <- length(Forest)
-    similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=nrow(X))
-    #similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=numSamps)
-
-    for(sampleNum in 1:nrow(X)){
-        for(j in 1:numT){
-            currentNode <- 1L
-            depth <- 1L
-            while(Forest[[j]]$Children[currentNode]!=0L){
-                s<-length(Forest[[j]]$matA[[currentNode]])/2
-                rotX <-sum(Forest[[j]]$matA[[currentNode]][(1:s)*2]*X[sampleNum,][Forest[[j]]$matA[[currentNode]][(1:s)*2-1]])
-                if(rotX<=Forest[[j]]$CutPoint[currentNode]){
-                    currentNode <- Forest[[j]]$Children[currentNode,1L]
-                }else{
-                    currentNode <- Forest[[j]]$Children[currentNode,2L]
-                }
-                depth <- depth+1L
-            }
-            similarityMatrix[sampleNum, Forest[[j]]$ALeaf[[currentNode]]] <- similarityMatrix[sampleNum, Forest[[j]]$ALeaf[[currentNode]]] + 1
-        }
-    }
-    return(similarityMatrix) #this is the similarity vector 
-}
-
 distNNRec <- function(X, Forest){
 	numT <- length(Forest)
 	simMatrix <- matrix(0,nrow=nrow(X) , ncol=nrow(X))
