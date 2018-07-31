@@ -697,7 +697,8 @@ createDistanceMatrix <- function(X, numTrees=100, K=10){
     X <- normalizeData(X)
 
     forest <- invisible(rfrus(X,trees=numTrees, MinParent=K))
-    similarityMatrix <- distNN(X, forest)
+    #similarityMatrix <- distNN(X, forest)
+    similarityMatrix <- distNNRec(X, forest)
 
     return(1+(similarityMatrix/(-1*numTrees)))
 }
