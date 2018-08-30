@@ -270,6 +270,9 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
                 CutPoint[CurrentNode] <- cut_val
             }else{
                 # There wasn't a good split so ignore this node and move to the next
+
+							#TODO why was there a stop here?
+							print(paste("nM ",numMove, ", NSize ", NdSize))
                 stop("Trying to move too many or not enough")
                 NodeStack <- NodeStack[-1L]
             }
@@ -658,6 +661,21 @@ createSimilarityMatrix <- function(X, numTrees=100, K=10){
 
     return(similarityMatrix/numTrees)
 }
+
+createSimilarityMatrixDepth <- function(X, numTrees=100, d=8){
+    checkInputMatrix(X)
+    # numberSamples <- nrow(X)
+    # similarityMatrix <- matrix(0,nrow= numberSamples, ncol=numberSamples)
+
+    X <- normalizeData(X)
+
+    forest <- invisible(rfrus(X,trees=numTrees, MaxDepth=d))
+    similarityMatrix <- distNNRec(X, forest)
+    #similarityMatrix <- distNN(X, forest)
+
+    return(similarityMatrix/numTrees)
+}
+
 
 createDistanceMatrix <- function(X, numTrees=100, K=10){
     checkInputMatrix(X)
