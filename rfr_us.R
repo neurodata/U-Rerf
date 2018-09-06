@@ -397,6 +397,7 @@ createSimilarityMatrix <- function(X, numTrees=100, K=10){
 
 	outlierMean <- mean(outliers)
 	outlierSD <- sd(outliers)
+	print(" ")
 
 	return(list(similarityMatrix=sM, forest=forest, colMin=normInfo$colMin, colMax=normInfo$colMax, outlierMean=outlierMean, outlierSD=outlierSD, trainSize=nrow(X)))
 }
@@ -499,6 +500,41 @@ ann <- function(X, urerf, k=3){
 	}
 	output
 }
+
+
+############################################################################
+cluster <- function(urerf, numClusters, clusterType){
+if(clusterType == "average"){
+dissimilarityMatrix <- 	hclust(as.dist(1-urerf$similarityMatrix), method="average")
+clusters <- cutree(dissimilarityMatrix, k=numClusters)
+}else if (clusterType == "mcquitty"){
+dissimilarityMatrix <- 	hclust(as.dist(1-urerf$similarityMatrix), method="mcquitty")
+clusters <- cutree(dissimilarityMatrix, k=numClusters)
+}else if (clusterType == "kmeans"){
+	#This is Hartigan-Wong algorithm
+	clusters <- kmeans(urerf$similarityMatrix, numClusters)
+	clusters <- clusters$cluster
+}else if(clusterType == "medoids"){
+	if(require(cluster)){
+		clusters <- cluster::pam(urerf$similarityMatrix, k=numClusters, diss=TRUE)
+		clusters <- clusters$clustering
+	} else{
+		print("The package 'cluster' is not installed")
+	}
+}
+return(clusters)
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 
