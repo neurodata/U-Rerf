@@ -504,14 +504,13 @@ manifoldVolume <- function(urerf, iterations=1000){
 	boundingLengths <- NA
 	print("Min and Max values of each dimension in bounding hyperrectangle:")
 	X <- cbind(sapply(1:numDims, function(dim){
-											halfDim <- abs(urerf$colMax[dim]/2)
-											minVal <- urerf$colMin[dim] - halfDim 
-											maxVal <- urerf$colMin[dim] + urerf$colMax[dim] + halfDim
-											print(paste("minVal: ", minVal, " MaxVal: ", maxVal))
-											boundingLengths[dim] <<- maxVal-minVal
-											runif(iterations, min=minVal,max=maxVal)
-})
-	)
+		halfDim <- abs(urerf$colMax[dim]/2)
+		minVal <- urerf$colMin[dim] - halfDim
+		maxVal <- urerf$colMin[dim] + urerf$colMax[dim] + halfDim
+		print(paste("minVal: ", minVal, " MaxVal: ", maxVal))
+		boundingLengths[dim] <<- maxVal-minVal
+		runif(iterations, min=minVal,max=maxVal)
+    }))
 
 	print("Length of dimensions:")
 	print(urerf$colMax)
