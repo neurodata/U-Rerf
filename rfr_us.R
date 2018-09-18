@@ -3,42 +3,6 @@ setCompilerOptions(optimize=3)
 enableJIT(3)
 
 ############################################################################
-bestCutForFeature2Delete <- function(X){
-	minVal <- min(X)
-	maxVal <- max(X)
-	if(minVal == maxVal){ return(NULL)}
-	X <- sort(X)
-
-	sumLeft <- 0
-	sumRight <- sum(X)
-	errLeft <- 0
-	errRight <- 0
-	meanLeft <- 0
-	meanRight <- 0
-	errCurr <- 0
-	minErr <- Inf
-	vectorLength <- length(X)
-	cutPoint <- NULL
-
-	for (m in 1:(vectorLength-1)){
-		sumLeft <- sumLeft + X[m]
-		sumRight <- sumRight - X[m]
-		meanLeft <- sumLeft/(m)
-		meanRight <- sumRight/(vectorLength-m)
-		errLeft <-sum((X[1:m]-meanLeft)^2)
-		errRight <-sum((X[(m+1):vectorLength]-meanRight)^2)
-
-		errCurr <- errLeft + errRight
-		# Determine if this split is currently the best option
-		if (errCurr < minErr){
-			cutPoint <- (X[m] + X[m+1])/2
-			minErr <- errCurr
-		}
-	}
-	return(c(cutPoint, minErr))
-}
-
-############################################################################
 bestCutForFeature <- function(X){
 	minVal <- min(X)
 	maxVal <- max(X)
@@ -359,8 +323,10 @@ makeA <- function(options){
 	return(cbind(ind,sparseM[ind]))        
 }
 
+#######################################
+####### Create Similarity Matrix ######
+#######################################
 
-#############################################################################
 createMatrixFromForest <- function(Forest){
 	tS <- Forest[[1]]$TrainSize
 	numTrees <- length(Forest)
@@ -382,8 +348,12 @@ createMatrixFromForest <- function(Forest){
 	return(simMatrix)
 }
 
-############################################################################
-createSimilarityMatrix <- function(X, numTrees=100, K=10){
+
+#######################################
+### Create Urerf Object - MinParent ###
+#######################################
+
+urerf <- function(X, numTrees=100, K=3){
 	checkInputMatrix(X)
 
 	normInfo <- normalizeDataHold(X)
@@ -402,9 +372,11 @@ createSimilarityMatrix <- function(X, numTrees=100, K=10){
 	return(list(similarityMatrix=sM, forest=forest, colMin=normInfo$colMin, colMax=normInfo$colMax, outlierMean=outlierMean, outlierSD=outlierSD, trainSize=nrow(X)))
 }
 
+#######################################
+#### Create Urerf Object - Depth ######
+#######################################
 
-############################################################################
-createSimilarityMatrixDepth <- function(X, numTrees=100, d=8){
+urerfDepth <- function(X, numTrees=100, d=8){
 	checkInputMatrix(X)
 
 	normInfo <- normalizeDataHold(X)
@@ -422,12 +394,14 @@ createSimilarityMatrixDepth <- function(X, numTrees=100, d=8){
 	return(list(similarityMatrix=sM, forest=forest, colMin=normInfo$colMin, colMax=normInfo$colMax, outlierMean=outlierMean, outlierSD=outlierSD, trainSize=nrow(X)))
 }
 
+#######################################
+######## Out of Data Set Outlier ######
+#######################################
 
-############################################################################
-is.outlier <- function(X, urerf){
+is.outlier <- function(X, urerf, standardDev=2){
 
 	X <- sweep(X, 2, urerf$colMin, "-")
-	X <-	 sweep(X, 2, urerf$colMax, "/")
+	X <- sweep(X, 2, urerf$colMax, "/")
 
 	numTrees <- length(urerf$forest)
 
@@ -457,13 +431,100 @@ is.outlier <- function(X, urerf){
 			}
 			matches[elementsInNode[[1]]] <- matches[elementsInNode[[1]]] + 1
 		}
-		output[i] <- sum(sort(matches,decreasing=TRUE)[1:3])/numTrees < (urerf$outlierMean-2*urerf$outlierSD)
+		output[i] <- sum(sort(matches,decreasing=TRUE)[1:3])/numTrees < (urerf$outlierMean-standardDev*urerf$outlierSD)
 	}
 	output
 }
 
+#######################################
+######## K outliers ######
+#######################################
 
-############################################################################
+dataset.outlier <- function(urerf, standardDev){
+
+outliers <- apply(urerf$similarityMatrix, 1, function(x) sum(sort(x,decreasing=TRUE)[1:3]))
+
+	outlierMean <- mean(outliers)
+	outlierSD <- sd(outliers)
+
+	which(outliers > (outlierMean+standardDev*outlierSD))
+}
+
+
+#######################################
+######## Out of Data Set Outlier ######  TEST
+#######################################
+
+is.outlier.test <- function(X, urerf, sd=2){
+
+	X <- sweep(X, 2, urerf$colMin, "-")
+	X <- sweep(X, 2, urerf$colMax, "/")
+
+	numTrees <- length(urerf$forest)
+
+	recursiveTreeTraversal <- function(currNode, testCase, treeNum){
+		if(urerf$forest[[treeNum]]$Children[currNode]==0L){
+			return(urerf$forest[[treeNum]]$ALeaf[currNode])
+		}
+
+		s<-length(urerf$forest[[treeNum]]$matA[[currNode]])/2
+		rotX <- apply(X[testCase,urerf$forest[[treeNum]]$matA[[currNode]][(1:s)*2-1], drop=FALSE], 1, function(x) sum(urerf$forest[[treeNum]]$matA[[currNode]][(1:s)*2]*x))
+		moveLeft <- rotX<=urerf$forest[[treeNum]]$CutPoint[currNode]
+
+		if(moveLeft){
+			recursiveTreeTraversal( urerf$forest[[treeNum]]$Children[currNode,1L], testCase, treeNum)
+		}else{
+			recursiveTreeTraversal( urerf$forest[[treeNum]]$Children[currNode,2L], testCase, treeNum)
+		}
+	}
+
+	output <- logical(nrow(X))
+	for(i in 1:nrow(X)){
+		matches <- numeric(urerf$trainSize) 
+		for(j in 1:numTrees){
+			elementsInNode <- recursiveTreeTraversal(1L, i, j)
+			if(length(elementsInNode[[1]])==0){
+				print("found one")
+			}
+			matches[elementsInNode[[1]]] <- matches[elementsInNode[[1]]] + 1
+		}
+		print(matches)
+		output[i] <- sum(sort(matches,decreasing=TRUE)[1:3])/numTrees < (urerf$outlierMean-sd*urerf$outlierSD)
+	}
+	output
+}
+
+#######################################
+#### Manifold Volume Approximation ####
+#######################################
+
+manifoldVolume <- function(urerf, iterations=1000){
+	numDims <- length(urerf$colMin)
+
+	boundingLengths <- NA
+	print("Min and Max values of each dimension in bounding hyperrectangle:")
+	X <- cbind(sapply(1:numDims, function(dim){
+											halfDim <- abs(urerf$colMax[dim]/2)
+											minVal <- urerf$colMin[dim] - halfDim 
+											maxVal <- urerf$colMin[dim] + urerf$colMax[dim] + halfDim
+											print(paste("minVal: ", minVal, " MaxVal: ", maxVal))
+											boundingLengths[dim] <<- maxVal-minVal
+											runif(iterations, min=minVal,max=maxVal)
+})
+	)
+
+	print("Length of dimensions:")
+	print(urerf$colMax)
+	boundingVolume <- prod(boundingLengths)
+	print(paste("Volume of bounding hyperrectangle:", boundingVolume))
+
+	boundingVolume * (sum(!is.outlier(X, urerf))/iterations)
+}
+
+#######################################
+#### Approximate Nearest Neighbor #####
+#######################################
+
 ann <- function(X, urerf, k=3){
 	X <- sweep(X, 2, urerf$colMin, "-")
 	X <-	 sweep(X, 2, urerf$colMax, "/")
@@ -486,7 +547,8 @@ ann <- function(X, urerf, k=3){
 		}
 	}
 
-	output <- NA
+#	output <- NA
+	output <- matrix(0,nrow=nrow(X), ncol=k)
 	for(i in 1:nrow(X)){
 		matches <- numeric(urerf$trainSize) 
 		for(j in 1:numTrees){
@@ -496,13 +558,15 @@ ann <- function(X, urerf, k=3){
 			}
 			matches[elementsInNode[[1]]] <- matches[elementsInNode[[1]]] + 1
 		}
-		output[i] <- list(order(matches,decreasing=TRUE)[1:k])
+		output[i,] <- order(matches,decreasing=TRUE)[1:k]
 	}
 	output
 }
 
 
-############################################################################
+#######################################
+####### Clustering ####################
+#######################################
 cluster <- function(urerf, numClusters, clusterType){
 if(clusterType == "average"){
 dissimilarityMatrix <- 	hclust(as.dist(1-urerf$similarityMatrix), method="average")

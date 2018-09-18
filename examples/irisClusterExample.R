@@ -4,7 +4,7 @@ library(ggplot2)
 
 X <- as.matrix(iris[,1:4])
 
-sM <- createSimilarityMatrix(X)
+sM <- urerf(X)
 
 cluss1 <- cluster(sM,3,"average")
 print("confusion matrix for 'average' cluster")

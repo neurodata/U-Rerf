@@ -1,4 +1,4 @@
-source('../rfr_us.R')
+source('../../rfr_us.R')
 library(ggplot2)
 
 # number of trees for forest
@@ -38,7 +38,9 @@ nnzPts <- which(sM$similarityMatrix[,499:501] != 0 & sM$similarityMatrix[,499:50
 ssd <- data.frame(Distance = AkNN[,499:501][nnzPts], Nearness = sM$similarityMatrix[,499:501][nnzPts])
 groupLabels <- c(rep("499",sizeD), rep("500", sizeD), rep("501",sizeD ))[nnzPts]
 ssd[["Sample"]] <- groupLabels
-ggplot(aes(x = Nearness, y = Distance, color = Sample), data = ssd) + geom_point()+ labs(title="Distancech vs Similarity of points 499-501 to all other points\n10-D Line, n=1000, d=10, k=10, trees=100\nThree Samples (0 Similarity omitted)")+ geom_jitter()
+p <- ggplot(aes(x = Nearness, y = Distance, color = Sample), data = ssd) + geom_point()+ labs(title="Distancech vs Similarity of points 499-501 to all other points\n10-D Line, n=1000, d=10, k=10, trees=100\nThree Samples (0 Similarity omitted)")+ geom_jitter()
+p <- p + scale_y_log10() 
+print(p)
 dev.off()
 
 png(file="~/dropbox/results/10dimDvNSingle.png")
@@ -46,6 +48,8 @@ nnzPts <- which(sM$similarityMatrix[,500] != 1)
 ssd <- data.frame(Distance = AkNN[,500][nnzPts], Nearness = sM$similarityMatrix[,500][nnzPts])
 groupLabels <- (rep("500", sizeD))[nnzPts]
 ssd[["Sample"]] <- groupLabels
-ggplot(aes(x = Nearness, y = Distance, color = Sample), data = ssd) + geom_point()+ labs(title="Distance vs Similarity of point 500 from all other points\n10-D Line, n=1000, d=10, k=10, trees=100\nThree Samples (0 Similarity Retained)", legend="test")+ geom_jitter()
+p<-ggplot(aes(x = Nearness, y = Distance, color = Sample), data = ssd) + geom_point()+ labs(title="Distance vs Similarity of point 500 from all other points\n10-D Line, n=1000, d=10, k=10, trees=100\nThree Samples (0 Similarity Retained)", legend="test")+ geom_jitter()
+p <- p + scale_y_log10() 
+print(p)
 dev.off()
 
