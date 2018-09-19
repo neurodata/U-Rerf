@@ -45,8 +45,9 @@ q <- q+1
 }
 
 results[,3] <- as.factor(results[,3])
+save(results, file="sensSpecSizes.Rdata")
 
-png(file="~/dropbox/results/sensSpecSizes.png")
+png(file="../../results/sensSpecSizes.png")
 p <- ggplot(aes(x = specificity, y = sensitivity, colour=datasetSize), data = results) + geom_line() + labs(title="Sensitivity vs Specificity\n10-D Line, n=100-10000, d=10, k=10, trees=100")
 p <- p + scale_x_reverse()
 print(p)
