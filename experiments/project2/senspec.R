@@ -7,7 +7,7 @@ numtrees <- 100
 # number of dimensions in dataset
 m <- 10 
 # number of samples in dataset
-sizeD <- c(100,1000,5000,10000)
+sizes <- c(100,1000,5000,10000)
 # the 'k' of k nearest neighbors
 k = 10
 
