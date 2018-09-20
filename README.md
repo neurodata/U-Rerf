@@ -1,3 +1,9 @@
+  - [U-Rerf](#u-rerf)
+  - [U-Rerf Setup](#u-rerf-setup)
+  - [Usage](#usage)
+  - [Examples](#examples)
+
+
 # U-Rerf
 The unsupervised version of Rerf.  Currently U-Rerf creates either an NxN similarity matrix which shows the similarity between each of the N samples to each of the other N-1 samples or U-Rerf can create an NxN distance matrix showing the distance between each of the N samples to each of the other N samples.
 
