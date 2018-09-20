@@ -1,4 +1,4 @@
-ontribution guidelines 
+Contributing Guidelines
 
 ## Branches
 
