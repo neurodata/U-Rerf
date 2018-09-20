@@ -87,15 +87,15 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
 	BS <- NA # vector in case of ties
 	MaxDeltaI <- 0
 	nBest <- 1L
-	BestIdx <-0L 
-	BestVar <-0L 
-	BestSplitIdx<-0L 
+	BestIdx <-0L
+	BestVar <-0L
+	BestSplitIdx<-0L
 	BestSplitValue <- 0
 	w <- nrow(X)
 	p <- ncol(X)
 	perBag <- (1-bagging)*w
 	Xnode<-double(w) # allocate space to store the current projection
-	SortIdx<-integer(w) 
+	SortIdx<-integer(w)
 	if(object.size(X) > 1000000){
 		OS<-TRUE
 	}else{
@@ -117,8 +117,8 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
 	CutPoint <- double(MaxNumNodes)
 	Children <- matrix(data = 0L, nrow = MaxNumNodes,ncol = 2L)
 	NDepth <- integer(MaxNumNodes)
-	matA <- vector("list", MaxNumNodes) 
-	Assigned2Node<- vector("list",MaxNumNodes) 
+	matA <- vector("list", MaxNumNodes)
+	Assigned2Node<- vector("list",MaxNumNodes)
 	Assigned2Leaf <- vector("list", MaxNumNodes)
 	Assigned2Bag <- vector("list",MaxNumNodes)
 	ind <- double(w)
@@ -141,7 +141,7 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
 		highestParent <- 1L
 		Assigned2Leaf <- vector("list", MaxNumNodes)
 		ind[] <- 0L
-		# Determine bagging set 
+		# Determine bagging set
 		# Assigned2Node is the set of row indices of X assigned to current node
 		if(bagging != 0){
 			if(replacement){
@@ -149,16 +149,16 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
 				Assigned2Node[[1]] <- ind
 			}else{
 				ind[1:perBag] <- sample(1:w, perBag, replace = FALSE)
-				Assigned2Node[[1]] <- ind[1:perBag]        
+				Assigned2Node[[1]] <- ind[1:perBag]
 			}
 		}else{
-			Assigned2Node[[1]] <- 1:w        
+			Assigned2Node[[1]] <- 1:w
 		}
 		Assigned2Bag[[1]] <- 1:w
 		# main loop over nodes
 		while (CurrentNode < NextUnusedNode && CurrentNode < StopNode){
 			# determine working samples for current node.
-			NodeRows <- Assigned2Node[CurrentNode] 
+			NodeRows <- Assigned2Node[CurrentNode]
 			Assigned2Node[[CurrentNode]]<-NA #remove saved indexes
 			NdSize <- length(NodeRows[[1L]]) #determine node size
 
@@ -172,11 +172,11 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
 				if(is.na(CurrentNode)){
 					break
 				}
-				next 
+				next
 			}
 			min_error <- Inf
 			cut_val <- 1
-			BestVar <- 1 
+			BestVar <- 1
 
 			# nBest <- 1L
 			for(q in unique(sparseM[,2])){
@@ -204,7 +204,7 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
 				if(is.na(CurrentNode)){
 					break
 				}
-				next 
+				next
 			}
 
 			# Recalculate the best projection
@@ -270,7 +270,7 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
 				NodeStack <- NodeStack[-1L]
 			}
 			# Store ClassProbs for this node.
-			# Only really useful for leaf nodes, but could be used instead of recalculating 
+			# Only really useful for leaf nodes, but could be used instead of recalculating
 			# at each node which is how it is currently.
 
 			Assigned2Bag[[CurrentNode]]<-NA #remove saved indexes
@@ -299,12 +299,12 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
 
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#                      Default option to make projection matrix 
+#                      Default option to make projection matrix
 #
-# this is the randomer part of random forest. The sparseM 
-# matrix is the projection matrix.  The creation of this
+# This is the randomer part of random forest. The sparseM
+# matrix is the projection matrix. The creation of this
 # matrix can be changed, but the nrow of sparseM should
-# remain p.  The ncol of the sparseM matrix is currently
+# remain p. The ncol of the sparseM matrix is currently
 # set to mtry but this can actually be any integer > 1;
 # can even greater than p.
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -320,7 +320,7 @@ makeA <- function(options){
 	}
 	#The below returns a matrix after removing zero columns in sparseM.
 	ind<- which(sparseM!=0,arr.ind=TRUE)
-	return(cbind(ind,sparseM[ind]))        
+	return(cbind(ind,sparseM[ind]))
 }
 
 #######################################
@@ -330,7 +330,7 @@ makeA <- function(options){
 createMatrixFromForest <- function(Forest){
 	tS <- Forest[[1]]$TrainSize
 	numTrees <- length(Forest)
-	
+
 	simMatrix <- matrix(0,nrow=tS , ncol=tS)
 
 	for(i in 1:numTrees){
@@ -423,7 +423,7 @@ is.outlier <- function(X, urerf, standardDev=2){
 
 	output <- logical(nrow(X))
 	for(i in 1:nrow(X)){
-		matches <- numeric(urerf$trainSize) 
+		matches <- numeric(urerf$trainSize)
 		for(j in 1:numTrees){
 			elementsInNode <- recursiveTreeTraversal(1L, i, j)
 			if(length(elementsInNode[[1]])==0){
@@ -480,7 +480,7 @@ is.outlier.test <- function(X, urerf, sd=2){
 
 	output <- logical(nrow(X))
 	for(i in 1:nrow(X)){
-		matches <- numeric(urerf$trainSize) 
+		matches <- numeric(urerf$trainSize)
 		for(j in 1:numTrees){
 			elementsInNode <- recursiveTreeTraversal(1L, i, j)
 			if(length(elementsInNode[[1]])==0){
@@ -505,7 +505,7 @@ manifoldVolume <- function(urerf, iterations=1000){
 	print("Min and Max values of each dimension in bounding hyperrectangle:")
 	X <- cbind(sapply(1:numDims, function(dim){
 											halfDim <- abs(urerf$colMax[dim]/2)
-											minVal <- urerf$colMin[dim] - halfDim 
+											minVal <- urerf$colMin[dim] - halfDim
 											maxVal <- urerf$colMin[dim] + urerf$colMax[dim] + halfDim
 											print(paste("minVal: ", minVal, " MaxVal: ", maxVal))
 											boundingLengths[dim] <<- maxVal-minVal
@@ -550,7 +550,7 @@ ann <- function(X, urerf, k=3){
 #	output <- NA
 	output <- matrix(0,nrow=nrow(X), ncol=k)
 	for(i in 1:nrow(X)){
-		matches <- numeric(urerf$trainSize) 
+		matches <- numeric(urerf$trainSize)
 		for(j in 1:numTrees){
 			elementsInNode <- recursiveTreeTraversal(1L, i, j)
 			if(length(elementsInNode[[1]])==0){
@@ -662,7 +662,7 @@ distDelete <- function(X, Forest, maxDepth=0){
 			}
 		}
 	}
-	return(dist)        
+	return(dist)
 }
 
 
@@ -693,7 +693,7 @@ distNN <- function(X, Forest){
 			similarityMatrix[sampleNum, Forest[[j]]$ALeaf[[currentNode]]] <- similarityMatrix[sampleNum, Forest[[j]]$ALeaf[[currentNode]]] + 1
 		}
 	}
-	return(similarityMatrix) #this is the similarity vector 
+	return(similarityMatrix) #this is the similarity vector
 }
 
 distNNRec <- function(X, Forest){
@@ -727,7 +727,7 @@ distNNRec <- function(X, Forest){
 		recursiveTreeTraversal(1L, rep(TRUE, nrow(X)), j)
 	}
 
-	return(simMatrix) #this is the similarity vector 
+	return(simMatrix) #this is the similarity vector
 }
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -756,8 +756,8 @@ distNNk <- function(y, X, sv, k, adder){
 			}
 			simLength <- simLength -1
 		}else{
-			#NNorder <- order(sqrt(rowSums((y-X[index[1:simCount[simLength]],])^2))) 
-			NNorder <- order(sqrt(rowSums(sweep(X[index[1:simCount[simLength]],],2,y)^2))) 
+			#NNorder <- order(sqrt(rowSums((y-X[index[1:simCount[simLength]],])^2)))
+			NNorder <- order(sqrt(rowSums(sweep(X[index[1:simCount[simLength]],],2,y)^2)))
 			NNindex <- c(NNindex, index[NNorder[1:remainingNN]])
 			remainingNN = 0
 		}
@@ -770,14 +770,14 @@ distNNk <- function(y, X, sv, k, adder){
 
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#                    Check K-Means 
+#                    Check K-Means
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 CheckKmeans <- function(Y, Yp){
 	uY <- length(unique(Y))
 	classCt <- tabulate(Y, uY)
 
 	class_order <- order(classCt, decreasing=TRUE)
-	used_class <-NULL 
+	used_class <-NULL
 	curr_class <- NA
 	class_error <- NA
 	for(z in 1:uY){
@@ -811,9 +811,9 @@ swissRoll <- function(n1, n2 = NULL, size = 6, dim3 = FALSE, rand_dist_fun = NUL
 
 	### If n2 is NULL, then generate a balanced dataset of size 2*n1
 	if (is.null(n2)) n2 <- n1
-	xdim <- ifelse(dim3, 3, 2) 
-	### GROUP 1 
-	# Generate Angles 
+	xdim <- ifelse(dim3, 3, 2)
+	### GROUP 1
+	# Generate Angles
 	rho <- runif(n1, 0, size*pi)
 	# Create Swiss Roll
 	g1x1 <- rho*cos(rho)
@@ -830,12 +830,12 @@ swissRoll <- function(n1, n2 = NULL, size = 6, dim3 = FALSE, rand_dist_fun = NUL
 	if (dim3) {
 		z_range <- range(c(g1x1, g1x2, g2x1, g2x2))
 		x3 <- runif(n1 + n2, z_range[1], z_range[2])
-	} 
+	}
 
 	### If needed random perturbation on the data
 	### please specify the random generation funciton in R to 'rand_dist_fun'
 	### and the corresponding parameters in '...'.
-	### For example, 
+	### For example,
 	### rand_dist_fun = rnorm, mean = 0, sd = 0.2
 	err <- matrix(0, n1 + n2, xdim)
 	if (!is.null(rand_dist_fun)) err <- matrix(rand_dist_fun(xdim*(n1 + n2), ...), n1 + n2, xdim)
@@ -913,7 +913,5 @@ findClusters <- function(nearnessMatrix, numClusters=3, numNearestNeighbors=10){
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 specN <- function(distMat, numClust){
 	Y <- kmeans(distMat, numClust)$cluster
-	return(Y)        
+	return(Y)
 }
-
-
