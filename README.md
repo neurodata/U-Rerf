@@ -25,7 +25,7 @@ numtrees <- 100
 # the 'k' of k nearest neighbors
 k <- 10
 
-# create a sizeD by m synthetic dataset
+# create a size D by m synthetic dataset
 X <- as.matrix(iris[,1:4])
 
 # create a similarity and distance matrices using urerf
