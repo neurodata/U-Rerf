@@ -35,8 +35,17 @@ expect_error(checkInputMatrix(X),"some values are na or nan.")
 
 test_that("output is the right size and type", {
 X <- as.matrix(iris[,1:4])
-similarityMatrix <- createSimilarityMatrix (X, 100, 10)
+similarityMatrix <- createSimilarityMatrix(X, 100, 10)
 #similarityMatrix <- X
 expect_equal(nrow(similarityMatrix), 150)
 expect_equal(ncol(similarityMatrix), 150)
 })
+
+test_that("matrix output has no zeros", {
+X <- as.matrix(iris[,1:4])
+options <- c(ncol(X), round(ncol(X)^.5),1L, 1/ncol(X))
+sparseMat <- makeA(options)
+ind<- which(sparseMat!=0,arr.ind=TRUE)
+expect_equal(nrow(ind), ncol(sparseMat)*nrow(sparseMat))
+})
+
