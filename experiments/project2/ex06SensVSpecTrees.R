@@ -12,13 +12,13 @@ if(length(args)==1){
 
 if(!LoadAndPrintOnly){
 	# number of trees for forest
-	trees <- c(10,50,100,500)
+	trees <- c(10,50,100,500,1000,2000)
 	# number of dimensions in dataset
 	m <- 10 
 	# number of samples in dataset
-	sizeD <- 200
+	sizeD <- 2000
 	numToTest <- .2 * sizeD
-	depth = 3
+	depth = 8
 	topK <- 3
 
 	X <- matrix(sort(runif(m*sizeD)), nrow=sizeD, ncol=m)
