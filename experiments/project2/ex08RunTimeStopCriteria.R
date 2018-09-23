@@ -16,8 +16,7 @@ if(!LoadAndPrintOnly){
 	# number of dimensions in dataset
 	m <- 10 
 	# number of samples in dataset
-	sizes <- c(50,100)
-	#sizes <- c(500,1000,5000,10000)
+	sizes <- c(500,1000,5000,10000)
 
 	depths = c(2,4,6,8,10)
 	minParents = c(3,5,10,15,20)
