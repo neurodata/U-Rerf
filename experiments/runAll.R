@@ -1,6 +1,0 @@
-source("1dimensionalNN.R")
-source("3dimensionalNN.R")
-source("10dimensionalNN.R")
-source("3dimensionalNNwOutlier.R")
-source("3dSwissRoll.R")
-source("3dSwissRollwOutlier.R")

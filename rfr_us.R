@@ -447,52 +447,9 @@ outliers <- apply(urerf$similarityMatrix, 1, function(x) sum(sort(x,decreasing=T
 	outlierMean <- mean(outliers)
 	outlierSD <- sd(outliers)
 
-	which(outliers > (outlierMean+standardDev*outlierSD))
+	which(outliers < (outlierMean-standardDev*outlierSD))
 }
 
-
-#######################################
-######## Out of Data Set Outlier ######  TEST
-#######################################
-
-is.outlier.test <- function(X, urerf, sd=2){
-
-	X <- sweep(X, 2, urerf$colMin, "-")
-	X <- sweep(X, 2, urerf$colMax, "/")
-
-	numTrees <- length(urerf$forest)
-
-	recursiveTreeTraversal <- function(currNode, testCase, treeNum){
-		if(urerf$forest[[treeNum]]$Children[currNode]==0L){
-			return(urerf$forest[[treeNum]]$ALeaf[currNode])
-		}
-
-		s<-length(urerf$forest[[treeNum]]$matA[[currNode]])/2
-		rotX <- apply(X[testCase,urerf$forest[[treeNum]]$matA[[currNode]][(1:s)*2-1], drop=FALSE], 1, function(x) sum(urerf$forest[[treeNum]]$matA[[currNode]][(1:s)*2]*x))
-		moveLeft <- rotX<=urerf$forest[[treeNum]]$CutPoint[currNode]
-
-		if(moveLeft){
-			recursiveTreeTraversal( urerf$forest[[treeNum]]$Children[currNode,1L], testCase, treeNum)
-		}else{
-			recursiveTreeTraversal( urerf$forest[[treeNum]]$Children[currNode,2L], testCase, treeNum)
-		}
-	}
-
-	output <- logical(nrow(X))
-	for(i in 1:nrow(X)){
-		matches <- numeric(urerf$trainSize) 
-		for(j in 1:numTrees){
-			elementsInNode <- recursiveTreeTraversal(1L, i, j)
-			if(length(elementsInNode[[1]])==0){
-				print("found one")
-			}
-			matches[elementsInNode[[1]]] <- matches[elementsInNode[[1]]] + 1
-		}
-		print(matches)
-		output[i] <- sum(sort(matches,decreasing=TRUE)[1:3])/numTrees < (urerf$outlierMean-sd*urerf$outlierSD)
-	}
-	output
-}
 
 #######################################
 #### Manifold Volume Approximation ####
@@ -567,7 +524,7 @@ ann <- function(X, urerf, k=3){
 #######################################
 ####### Clustering ####################
 #######################################
-cluster <- function(urerf, numClusters, clusterType){
+cluster <- function(urerf, numClusters, clusterType="mcquitty"){
 if(clusterType == "average"){
 dissimilarityMatrix <- 	hclust(as.dist(1-urerf$similarityMatrix), method="average")
 clusters <- cutree(dissimilarityMatrix, k=numClusters)
