@@ -21,7 +21,7 @@ k = 3
 	}
 
 	# create a similarity matrix using urerf
-	sM <- urerfDepth(X, numtrees, depth)
+	sM <- urerf(X, numtrees, depth=depth)
 	nnzPts <- which(sM$similarityMatrix != 0 & sM$similarityMatrix != 1)
 
 	#create output

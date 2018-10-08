@@ -31,7 +31,7 @@ for(sizeD in sizes){
 	for(m in numDims){
 X <- matrix(sort(runif(m*sizeD)), nrow=sizeD, ncol=m)
 # create a similarity matrix using urerf
-sM <- urerfDepth(X, numtrees, 8)
+sM <- urerf(X, numtrees, depth=8)
 testSize <- 500
 numToTest <- .2 * sizeD
 Y <- matrix(sort(runif(m*testSize)), nrow=testSize, ncol=m)

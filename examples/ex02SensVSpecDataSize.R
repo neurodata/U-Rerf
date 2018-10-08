@@ -30,7 +30,7 @@ X <- matrix(sort(runif(m*sizeD)), nrow=sizeD, ncol=m)
 kNN <- as.matrix(dist(X))
 
 # create a similarity matrix using urerf
-sM <- urerfDepth(X, numtrees, 8)
+sM <- urerf(X, numtrees, depth=8)
 
 Y <- matrix(sort(runif(m*sizeD)), nrow=sizeD, ncol=m)
 

@@ -33,7 +33,7 @@ if(!LoadAndPrintOnly){
 			numToTest <- .2*sizeD
 			Y <- matrix(sort(runif(m*numTest)), nrow=numTest, ncol=m)
 
-			sM <- urerfDepth(X, numtrees, depth)
+			sM <- urerf(X, numtrees, depth=depth)
 
 			time <- system.time(apprNND <- ann(Y, sM, numToTest), gcFirst = TRUE)[3]
 			results[q,] <- c(time/numTest,sizeD ,paste("d",depth,sep=''))

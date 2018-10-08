@@ -3,7 +3,27 @@ setCompilerOptions(optimize=3)
 enableJIT(3)
 
 ############################################################################
-bestCutForFeature <- function(X){
+
+
+############################################################################
+GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replacement=TRUE, FUN=makeA, options=c(ncol(X), round(ncol(X)^.5),1L, 1/ncol(X)), COOB=TRUE, Progress=TRUE){
+
+makeA <- function(options){
+	p <- options[[1L]]
+	d <- options[[2L]]
+	method <- options[[3L]]
+	if(method == 1L){
+		rho<-options[[4L]]
+		nnzs <- round(p*d*rho)
+		sparseM <- matrix(0L, nrow=p, ncol=d)
+		sparseM[sample(1L:(p*d),nnzs, replace=F)]<-sample(c(1L,-1L),nnzs,replace=T)
+	}
+	#The below returns a matrix after removing zero columns in sparseM.
+	ind<- which(sparseM!=0,arr.ind=TRUE)
+	return(cbind(ind,sparseM[ind]))        
+}
+
+TwoMeansCut <- function(X){
 	minVal <- min(X)
 	maxVal <- max(X)
 	if(minVal == maxVal){ return(NULL)}
@@ -53,35 +73,9 @@ bestCutForFeature <- function(X){
 	return(c(cutPoint, minErr))
 }
 
-############################################################################
-normalizeData <- function(X){
-	 X <- sweep(X, 2, apply(X, 2, min), "-")
-	 sweep(X, 2, apply(X, 2, max), "/")
-}
 
-############################################################################
-normalizeDataHold <- function(X){
-	colMin <- apply(X,2,min)
-	colMax <- apply(sweep(X, 2, apply(X, 2, min)), 2, max)
-	list(colMin=colMin, colMax=colMax)
-}
+############# Start Growing Forest #################
 
-
-############################################################################
-checkInputMatrix <- function(X){
-	if(is.null(X)){
-		stop("the input is null.")
-	}
-	if(sum(is.na(X)) | sum(is.nan(X)) ){
-		stop("some values are na or nan.")
-	}
-	if(sum(colSums(X)==0) != 0){
-		stop("some columns are all zero.")
-	}
-}
-
-############################################################################
-rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replacement=TRUE, FUN=makeA, options=c(ncol(X), round(ncol(X)^.5),1L, 1/ncol(X)), COOB=TRUE, Progress=TRUE){
 	forest <- vector("list",trees)
 	BV <- NA # vector in case of ties
 	BS <- NA # vector in case of ties
@@ -184,7 +178,7 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
 				lrows <- which(sparseM[,2]==q)
 				Xnode[1:NdSize] <- X[NodeRows[[1L]],sparseM[lrows,1], drop=FALSE]%*%sparseM[lrows,3, drop=FALSE]
 				#Sort the projection, Xnode, and rearrange Y accordingly
-				results <- bestCutForFeature(Xnode[1:NdSize])
+				results <- TwoMeansCut(Xnode[1:NdSize])
 				if (is.null(results)) next
 
 				if(results[2] < min_error){
@@ -308,7 +302,7 @@ rfrus <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replace
 # set to mtry but this can actually be any integer > 1;
 # can even greater than p.
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-makeA <- function(options){
+makeAB <- function(options){
 	p <- options[[1L]]
 	d <- options[[2L]]
 	method <- options[[3L]]
@@ -326,6 +320,38 @@ makeA <- function(options){
 #######################################
 ####### Create Similarity Matrix ######
 #######################################
+
+
+
+
+#######################################
+### Create Urerf Object - MinParent ###
+#######################################
+
+urerf <- function(X, numTrees=100, K=3, depth=NA){
+
+normalizeData <- function(X){
+	 X <- sweep(X, 2, apply(X, 2, min), "-")
+	 sweep(X, 2, apply(X, 2, max), "/")
+}
+
+normalizeDataInfo <- function(X){
+	colMin <- apply(X,2,min)
+	colMax <- apply(sweep(X, 2, apply(X, 2, min)), 2, max)
+	list(colMin=colMin, colMax=colMax)
+}
+
+checkInputMatrix <- function(X){
+	if(is.null(X)){
+		stop("the input is null.")
+	}
+	if(sum(is.na(X)) | sum(is.nan(X)) ){
+		stop("some values are na or nan.")
+	}
+	if(sum(colSums(X)==0) != 0){
+		stop("some columns are all zero.")
+	}
+}
 
 createMatrixFromForest <- function(Forest){
 	tS <- Forest[[1]]$TrainSize
@@ -348,19 +374,16 @@ createMatrixFromForest <- function(Forest){
 	return(simMatrix)
 }
 
-
-#######################################
-### Create Urerf Object - MinParent ###
-#######################################
-
-urerf <- function(X, numTrees=100, K=3){
+########### Start Urerf #############
 	checkInputMatrix(X)
 
-	normInfo <- normalizeDataHold(X)
+	normInfo <- normalizeDataInfo(X)
 	X <- normalizeData(X)
 	rfrus <- cmpfun(rfrus)
 	distNNRec <- cmpfun(distNNRec)
-	forest <- invisible(rfrus(X,trees=numTrees, MinParent=K))
+	
+	forest <- invisible(ifelse(is.na(depth),GrowUnsupervisedForest(X,trees=numTrees, MinParent=K), GrowUnsupervisedForest(X,trees=numTrees, MaxDepth=depth)))
+	#forest <- invisible(rfrus(X,trees=numTrees, MinParent=K))
 	sM <- createMatrixFromForest(forest)
 
 	outliers <- apply(sM, 1, function(x) sum(sort(x,decreasing=TRUE)[1:3]))
@@ -372,27 +395,26 @@ urerf <- function(X, numTrees=100, K=3){
 	return(list(similarityMatrix=sM, forest=forest, colMin=normInfo$colMin, colMax=normInfo$colMax, outlierMean=outlierMean, outlierSD=outlierSD, trainSize=nrow(X)))
 }
 
-#######################################
-#### Create Urerf Object - Depth ######
-#######################################
 
-urerfDepth <- function(X, numTrees=100, d=8){
-	checkInputMatrix(X)
 
-	normInfo <- normalizeDataHold(X)
-	X <- normalizeData(X)
-	rfrus <- cmpfun(rfrus)
-	distNNRec <- cmpfun(distNNRec)
-	forest <- invisible(rfrus(X,trees=numTrees, MaxDepth=d))
-	sM <- createMatrixFromForest(forest)
 
-	outliers <- apply(sM, 1, function(x) sum(sort(x,decreasing=TRUE)[1:3]))
 
-	outlierMean <- mean(outliers)
-	outlierSD <- sd(outliers)
 
-	return(list(similarityMatrix=sM, forest=forest, colMin=normInfo$colMin, colMax=normInfo$colMax, outlierMean=outlierMean, outlierSD=outlierSD, trainSize=nrow(X)))
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #######################################
 ######## Out of Data Set Outlier ######
@@ -547,7 +569,50 @@ return(clusters)
 }
 
 
+#############################
+#######Swiss Roll Code#######
+#############################
+swissRoll <- function(n1, n2 = NULL, size = 6, dim3 = FALSE, rand_dist_fun = NULL, ...) {
 
+	### If n2 is NULL, then generate a balanced dataset of size 2*n1
+	if (is.null(n2)) n2 <- n1
+	xdim <- ifelse(dim3, 3, 2) 
+	### GROUP 1 
+	# Generate Angles 
+	rho <- runif(n1, 0, size*pi)
+	# Create Swiss Roll
+	g1x1 <- rho*cos(rho)
+	g1x2 <- rho*sin(rho)
+
+	### GROUP 2
+	# Generate Angles
+	rho <- runif(n2, 0, size*pi)
+	# Create Inverse Swiss Roll
+	g2x1 <- -rho*cos(rho)
+	g2x2 <- -rho*sin(rho)
+
+	### Generate the 3rd dimension
+	if (dim3) {
+		z_range <- range(c(g1x1, g1x2, g2x1, g2x2))
+		x3 <- runif(n1 + n2, z_range[1], z_range[2])
+	} 
+
+	### If needed random perturbation on the data
+	### please specify the random generation funciton in R to 'rand_dist_fun'
+	### and the corresponding parameters in '...'.
+	### For example, 
+	### rand_dist_fun = rnorm, mean = 0, sd = 0.2
+	err <- matrix(0, n1 + n2, xdim)
+	if (!is.null(rand_dist_fun)) err <- matrix(rand_dist_fun(xdim*(n1 + n2), ...), n1 + n2, xdim)
+
+	### Output the Swiss Roll dataset
+	if (dim3) {
+		out <- data.frame(y = c(rep(0:1, c(n1, n2))), x1 = c(g1x1, g2x1) + err[,1], x2 = c(g1x2, g2x2) + err[,2], x3 = x3 + err[,3])
+	} else {
+		out <- data.frame(y = c(rep(0:1, c(n1, n2))), x1 = c(g1x1, g2x1) + err[,1], x2 = c(g1x2, g2x2) + err[,2])
+	}
+	out
+}
 
 
 
@@ -627,7 +692,7 @@ distDelete <- function(X, Forest, maxDepth=0){
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #                    Find Potential Nearest Neighbors Vector
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-distNN <- function(X, Forest){
+distNNDelete <- function(X, Forest){
 	#distNN <- function(X, Forest, numSamps){
 	numT <- length(Forest)
 	similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=nrow(X))
@@ -690,7 +755,7 @@ distNNRec <- function(X, Forest){
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #                    Find Nearest Neighbors from similarity vector
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-distNNk <- function(y, X, sv, k, adder){
+distNNkDelete <- function(y, X, sv, k, adder){
 	index <- order(sv, decreasing=TRUE)
 	simCount <- tabulate(sv)
 	multiplier  <- adder
@@ -729,7 +794,7 @@ distNNk <- function(y, X, sv, k, adder){
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #                    Check K-Means 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-CheckKmeans <- function(Y, Yp){
+CheckKmeansDelete <- function(Y, Yp){
 	uY <- length(unique(Y))
 	classCt <- tabulate(Y, uY)
 
@@ -763,55 +828,14 @@ CheckKmeans <- function(Y, Yp){
 }
 
 
-#############################Swiss Roll Code###################################
-swissRoll <- function(n1, n2 = NULL, size = 6, dim3 = FALSE, rand_dist_fun = NULL, ...) {
 
-	### If n2 is NULL, then generate a balanced dataset of size 2*n1
-	if (is.null(n2)) n2 <- n1
-	xdim <- ifelse(dim3, 3, 2) 
-	### GROUP 1 
-	# Generate Angles 
-	rho <- runif(n1, 0, size*pi)
-	# Create Swiss Roll
-	g1x1 <- rho*cos(rho)
-	g1x2 <- rho*sin(rho)
-
-	### GROUP 2
-	# Generate Angles
-	rho <- runif(n2, 0, size*pi)
-	# Create Inverse Swiss Roll
-	g2x1 <- -rho*cos(rho)
-	g2x2 <- -rho*sin(rho)
-
-	### Generate the 3rd dimension
-	if (dim3) {
-		z_range <- range(c(g1x1, g1x2, g2x1, g2x2))
-		x3 <- runif(n1 + n2, z_range[1], z_range[2])
-	} 
-
-	### If needed random perturbation on the data
-	### please specify the random generation funciton in R to 'rand_dist_fun'
-	### and the corresponding parameters in '...'.
-	### For example, 
-	### rand_dist_fun = rnorm, mean = 0, sd = 0.2
-	err <- matrix(0, n1 + n2, xdim)
-	if (!is.null(rand_dist_fun)) err <- matrix(rand_dist_fun(xdim*(n1 + n2), ...), n1 + n2, xdim)
-
-	### Output the Swiss Roll dataset
-	if (dim3) {
-		out <- data.frame(y = c(rep(0:1, c(n1, n2))), x1 = c(g1x1, g2x1) + err[,1], x2 = c(g1x2, g2x2) + err[,2], x3 = x3 + err[,3])
-	} else {
-		out <- data.frame(y = c(rep(0:1, c(n1, n2))), x1 = c(g1x1, g2x1) + err[,1], x2 = c(g1x2, g2x2) + err[,2])
-	}
-	out
-}
 ################################################################################
 ################################################################################
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #                     Hartigan's Method
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-findClusters <- function(nearnessMatrix, numClusters=3, numNearestNeighbors=10){
+findClustersDelete <- function(nearnessMatrix, numClusters=3, numNearestNeighbors=10){
 	q <- rep(0,numClusters)
 	clusters <- vector("list", numClusters)
 	numSamples <- nrow(nearnessMatrix)
@@ -864,13 +888,4 @@ findClusters <- function(nearnessMatrix, numClusters=3, numNearestNeighbors=10){
 	print(paste("after 1", q))
 	return(clusters)
 }
-
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#                     Spectral Cluster
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-specN <- function(distMat, numClust){
-	Y <- kmeans(distMat, numClust)$cluster
-	return(Y)        
-}
-
 

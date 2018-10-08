@@ -31,7 +31,7 @@ if(!LoadAndPrintOnly){
 	q<-1
 
 	for(numtrees in trees){
-		sM <- urerfDepth(X, numtrees, depth)
+		sM <- urerf(X, numtrees, depth=depth)
 
 		apprNND <- ann(Y, sM, numToTest)
 

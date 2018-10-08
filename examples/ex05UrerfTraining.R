@@ -35,7 +35,7 @@ if(!LoadAndPrintOnly){
 			X <- matrix(sort(runif(m*sizeD)), nrow=sizeD, ncol=m)
 			# create a similarity matrix using urerf
 			for(j in 1:numTimes){
-				time[j] <- system.time(urerfDepth(X, numtrees, 8),gcFirst=TRUE)[3]
+				time[j] <- system.time(urerf(X, numtrees, depth=8),gcFirst=TRUE)[3]
 			}
 			results[q,] <- c(median(time),m,sizeD)
 			q <- q + 1

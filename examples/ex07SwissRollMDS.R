@@ -31,7 +31,7 @@ with(data.frame(X), {
 dev.off()
 
 # create a similarity matrix using urerf
-similarityMatrix <- 1-(urerfDepth(X, numtrees, depth))$similarityMatrix
+similarityMatrix <- 1-(urerf(X, numtrees, depth=depth))$similarityMatrix
 
 fit <- cmdscale(as.dist(similarityMatrix), eig=FALSE, k=2)
 
@@ -75,7 +75,7 @@ with(data.frame(X), {
 dev.off()
 
 # create a similarity matrix using urerf
-similarityMatrix <- 1-(urerfDepth(X, numtrees, depth))$similarityMatrix
+similarityMatrix <- 1-(urerf(X, numtrees, depth=depth))$similarityMatrix
 
 fit <- cmdscale(as.dist(similarityMatrix), eig=FALSE, k=2)
 

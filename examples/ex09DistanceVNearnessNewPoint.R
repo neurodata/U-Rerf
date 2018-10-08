@@ -20,35 +20,35 @@ Y[3,] <- X[3,]
 
 # find the actual euclidean distance between all samples of the synthetic dataset
 # create a similarity matrix using urerf
-sM <- urerfDepth(X, numtrees, depth)
+sM <- urerf(X, numtrees, depth=depth)
 
 
-ann2 <- function(X, urerf){
-	X <- sweep(X, 2, urerf$colMin, "-")
-	X <-	 sweep(X, 2, urerf$colMax, "/")
+ann2 <- function(X, urerfS){
+	X <- sweep(X, 2, urerfS$colMin, "-")
+	X <-	 sweep(X, 2, urerfS$colMax, "/")
 
-	numTrees <- length(urerf$forest)
+	numTrees <- length(urerfS$forest)
 
 	recursiveTreeTraversal <- function(currNode, testCase, treeNum){
-		if(urerf$forest[[treeNum]]$Children[currNode]==0L){
-			return(urerf$forest[[treeNum]]$ALeaf[currNode])
+		if(urerfS$forest[[treeNum]]$Children[currNode]==0L){
+			return(urerfS$forest[[treeNum]]$ALeaf[currNode])
 		}
 
-		s<-length(urerf$forest[[treeNum]]$matA[[currNode]])/2
-		rotX <- apply(X[testCase,urerf$forest[[treeNum]]$matA[[currNode]][(1:s)*2-1], drop=FALSE], 1, function(x) sum(urerf$forest[[treeNum]]$matA[[currNode]][(1:s)*2]*x))
-		moveLeft <- rotX<=urerf$forest[[treeNum]]$CutPoint[currNode]
+		s<-length(urerfS$forest[[treeNum]]$matA[[currNode]])/2
+		rotX <- apply(X[testCase,urerfS$forest[[treeNum]]$matA[[currNode]][(1:s)*2-1], drop=FALSE], 1, function(x) sum(urerfS$forest[[treeNum]]$matA[[currNode]][(1:s)*2]*x))
+		moveLeft <- rotX<=urerfS$forest[[treeNum]]$CutPoint[currNode]
 
 		if(moveLeft){
-			recursiveTreeTraversal( urerf$forest[[treeNum]]$Children[currNode,1L], testCase, treeNum)
+			recursiveTreeTraversal( urerfS$forest[[treeNum]]$Children[currNode,1L], testCase, treeNum)
 		}else{
-			recursiveTreeTraversal( urerf$forest[[treeNum]]$Children[currNode,2L], testCase, treeNum)
+			recursiveTreeTraversal( urerfS$forest[[treeNum]]$Children[currNode,2L], testCase, treeNum)
 		}
 	}
 
 	#	output <- NA
-	output <- matrix(0,nrow=nrow(X), ncol=urerf$trainSize)
+	output <- matrix(0,nrow=nrow(X), ncol=urerfS$trainSize)
 	for(i in 1:nrow(X)){
-		matches <- numeric(urerf$trainSize) 
+		matches <- numeric(urerfS$trainSize) 
 		for(j in 1:numTrees){
 			elementsInNode <- recursiveTreeTraversal(1L, i, j)
 			if(length(elementsInNode[[1]])==0){

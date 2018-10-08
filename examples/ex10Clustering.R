@@ -36,7 +36,7 @@ with(data.frame(X), {
 dev.off()
 
 # create a similarity matrix using urerf
-sM <- (urerfDepth(X, numtrees, depth))
+sM <- (urerf(X, numtrees, depth=depth))
 
 clusters <- cluster(sM, 2)
 
