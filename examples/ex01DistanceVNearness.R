@@ -2,7 +2,7 @@ source('../rfr_us.R')
 library(ggplot2)
 
 # number of trees for forest
-numtrees <- 100
+numtrees <- 5
 # number of dimensions in dataset
 m <- 10
 # number of samples in dataset

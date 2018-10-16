@@ -50,7 +50,7 @@ if(!LoadAndPrintOnly){
 			numToTest <- .2*sizeD
 			Y <- matrix(sort(runif(m*numTest)), nrow=numTest, ncol=m)
 
-			sM <- urerf(X, numtrees, minParent)
+			sM <- urerf(X, numtrees, K=minParent)
 			time <- system.time(apprNND <- ann(Y, sM, numToTest), gcFirst = TRUE)[3]
 			results[q,] <- c(time/numTest,sizeD ,paste("mp",minParent,sep=''))
 			q <- q+1

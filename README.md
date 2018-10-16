@@ -23,7 +23,7 @@ source('rfr_us.R')
 
 # number of trees for forest
 numtrees <- 100
-# the 'k' of k nearest neighbors
+# the 'k' of k nearest neighbors, this parameter is equivalent to minparent found in Random Forests
 k <- 10
 # set max depth
 depth <- 4
@@ -32,8 +32,8 @@ depth <- 4
 X <- as.matrix(iris[,1:4])
 
 # create a urerf structure which includes the forest and similarity matrix
-urerfStructure <- urerf(X, numtrees, k)
-urerfStructure <- urerfDepth(X, numtrees, depth)
+urerfStructure <- urerf(X, numtrees, K=k)
+urerfStructure <- urerf(X, numtrees, depth=depth)
 ```
 
 Example use cases can be found in the examples directory.

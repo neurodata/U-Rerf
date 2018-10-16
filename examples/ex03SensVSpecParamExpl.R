@@ -52,7 +52,7 @@ if(!LoadAndPrintOnly){
 
 
 	for(minParent in minParents){
-		sM <- urerf(X, numtrees, minParent)
+		sM <- urerf(X, numtrees, K=minParent)
 		apprNND <- ann(Y, sM, numToTest)
 
 		for(i in topK:numToTest){

@@ -6,75 +6,60 @@ enableJIT(3)
 
 
 ############################################################################
-GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replacement=TRUE, FUN=makeA, options=c(ncol(X), round(ncol(X)^.5),1L, 1/ncol(X)), COOB=TRUE, Progress=TRUE){
+GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replacement=TRUE, FUN=makeAB, options=c(ncol(X), round(ncol(X)^.5),1L, 1/ncol(X)), COOB=TRUE, Progress=TRUE){
 
-makeA <- function(options){
-	p <- options[[1L]]
-	d <- options[[2L]]
-	method <- options[[3L]]
-	if(method == 1L){
-		rho<-options[[4L]]
-		nnzs <- round(p*d*rho)
-		sparseM <- matrix(0L, nrow=p, ncol=d)
-		sparseM[sample(1L:(p*d),nnzs, replace=F)]<-sample(c(1L,-1L),nnzs,replace=T)
-	}
-	#The below returns a matrix after removing zero columns in sparseM.
-	ind<- which(sparseM!=0,arr.ind=TRUE)
-	return(cbind(ind,sparseM[ind]))        
-}
+	TwoMeansCut <- function(X){
+		minVal <- min(X)
+		maxVal <- max(X)
+		if(minVal == maxVal){ return(NULL)}
+		sizeX <- length(X)
+		X <- sort(X[which(X!=0)])
+		sizeNNZ <- length(X)
+		sizeZ <- sizeX - sizeNNZ
 
-TwoMeansCut <- function(X){
-	minVal <- min(X)
-	maxVal <- max(X)
-	if(minVal == maxVal){ return(NULL)}
-	sizeX <- length(X)
-	X <- sort(X[which(X!=0)])
-	sizeNNZ <- length(X)
-	sizeZ <- sizeX - sizeNNZ
+		sumLeft <- 0
+		sumRight <- sum(X)
+		errLeft <- 0
+		errRight <- 0
+		meanLeft <- 0
+		meanRight <- 0
+		errCurr <- 0
+		cutPoint <- NULL
 
-	sumLeft <- 0
-	sumRight <- sum(X)
-	errLeft <- 0
-	errRight <- 0
-	meanLeft <- 0
-	meanRight <- 0
-	errCurr <- 0
-	cutPoint <- NULL
-
-	if(sizeZ){
-		meanRight <- sumRight/sizeNNZ
-		minErr <- sum((X-meanRight)^2)
-		cutPoint <- X[1]/2
-	}else{
-		minErr <- Inf
-	}
-
-	if(sizeNNZ-1){
-		index <- 1
-		for (m in X[1:(sizeNNZ-1)]){
-			leftsize <- sizeZ + index
-			rightsize <- sizeNNZ - index
-			sumLeft <- sumLeft + m
-			sumRight <- sumRight - m
-			meanLeft <- sumLeft/leftsize
-			meanRight <- sumRight/rightsize
-			errLeft <-sum((X[1:index]-meanLeft)^2) + sizeZ * (meanLeft^2)
-			errRight <-sum((X[(index+1):sizeNNZ]-meanRight)^2)
-
-			errCurr <- errLeft + errRight
-			# Determine if this split is currently the best option
-			if (errCurr < minErr){
-				cutPoint <- (X[index] + X[index+1])/2
-				minErr <- errCurr
-			}
-			index <- index+1
+		if(sizeZ){
+			meanRight <- sumRight/sizeNNZ
+			minErr <- sum((X-meanRight)^2)
+			cutPoint <- X[1]/2
+		}else{
+			minErr <- Inf
 		}
+
+		if(sizeNNZ-1){
+			index <- 1
+			for (m in X[1:(sizeNNZ-1)]){
+				leftsize <- sizeZ + index
+				rightsize <- sizeNNZ - index
+				sumLeft <- sumLeft + m
+				sumRight <- sumRight - m
+				meanLeft <- sumLeft/leftsize
+				meanRight <- sumRight/rightsize
+				errLeft <-sum((X[1:index]-meanLeft)^2) + sizeZ * (meanLeft^2)
+				errRight <-sum((X[(index+1):sizeNNZ]-meanRight)^2)
+
+				errCurr <- errLeft + errRight
+				# Determine if this split is currently the best option
+				if (errCurr < minErr){
+					cutPoint <- (X[index] + X[index+1])/2
+					minErr <- errCurr
+				}
+				index <- index+1
+			}
+		}
+		return(c(cutPoint, minErr))
 	}
-	return(c(cutPoint, minErr))
-}
 
 
-############# Start Growing Forest #################
+	############# Start Growing Forest #################
 
 	forest <- vector("list",trees)
 	BV <- NA # vector in case of ties
@@ -251,7 +236,7 @@ TwoMeansCut <- function(X){
 				NodeStack <- c(NextUnusedNode, NextUnusedNode+1L, NodeStack)
 				NextUnusedNode <- NextUnusedNode + 2L
 				# Store the projection matrix for the best split
-				matA[[CurrentNode]] <- as.integer(t(sparseM[which(sparseM[,2]==bestVar),c(1,3)]))
+				matA[[CurrentNode]] <- as.integer(base::t(sparseM[which(sparseM[,2]==bestVar),c(1,3)]))
 				CutPoint[CurrentNode] <- cut_val
 			}else{
 				# There wasn't a good split so ignore this node and move to the next
@@ -287,7 +272,9 @@ TwoMeansCut <- function(X){
 			cat("|")
 			flush.console()
 		}
+		#	print(treeX)
 	}
+	#print(length(forest))
 	return(forest)
 }
 
@@ -302,20 +289,22 @@ TwoMeansCut <- function(X){
 # set to mtry but this can actually be any integer > 1;
 # can even greater than p.
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-makeAB <- function(options){
-	p <- options[[1L]]
-	d <- options[[2L]]
-	method <- options[[3L]]
-	if(method == 1L){
-		rho<-options[[4L]]
-		nnzs <- round(p*d*rho)
-		sparseM <- matrix(0L, nrow=p, ncol=d)
-		sparseM[sample(1L:(p*d),nnzs, replace=F)]<-sample(c(1L,-1L),nnzs,replace=T)
+
+	makeAB <- function(options){
+		p <- options[[1L]]
+		d <- options[[2L]]
+		method <- options[[3L]]
+		if(method == 1L){
+			rho<-options[[4L]]
+			nnzs <- round(p*d*rho)
+			sparseM <- matrix(0L, nrow=p, ncol=d)
+			sparseM[sample(1L:(p*d),nnzs, replace=F)]<-sample(c(1L,-1L),nnzs,replace=TRUE)
+		}
+		#The below returns a matrix after removing zero columns in sparseM.
+		ind<- which(sparseM!=0,arr.ind=TRUE)
+		return(cbind(ind,sparseM[ind]))        
 	}
-	#The below returns a matrix after removing zero columns in sparseM.
-	ind<- which(sparseM!=0,arr.ind=TRUE)
-	return(cbind(ind,sparseM[ind]))        
-}
+
 
 #######################################
 ####### Create Similarity Matrix ######
@@ -330,60 +319,67 @@ makeAB <- function(options){
 
 urerf <- function(X, numTrees=100, K=3, depth=NA){
 
-normalizeData <- function(X){
-	 X <- sweep(X, 2, apply(X, 2, min), "-")
-	 sweep(X, 2, apply(X, 2, max), "/")
-}
-
-normalizeDataInfo <- function(X){
-	colMin <- apply(X,2,min)
-	colMax <- apply(sweep(X, 2, apply(X, 2, min)), 2, max)
-	list(colMin=colMin, colMax=colMax)
-}
-
-checkInputMatrix <- function(X){
-	if(is.null(X)){
-		stop("the input is null.")
+	normalizeData <- function(X){
+		X <- sweep(X, 2, apply(X, 2, min), "-")
+		sweep(X, 2, apply(X, 2, max), "/")
 	}
-	if(sum(is.na(X)) | sum(is.nan(X)) ){
-		stop("some values are na or nan.")
-	}
-	if(sum(colSums(X)==0) != 0){
-		stop("some columns are all zero.")
-	}
-}
 
-createMatrixFromForest <- function(Forest){
-	tS <- Forest[[1]]$TrainSize
-	numTrees <- length(Forest)
-	
-	simMatrix <- matrix(0,nrow=tS , ncol=tS)
+	normalizeDataInfo <- function(X){
+		colMin <- apply(X,2,min)
+		colMax <- apply(sweep(X, 2, apply(X, 2, min)), 2, max)
+		list(colMin=colMin, colMax=colMax)
+	}
 
-	for(i in 1:numTrees){
-		childNodes <- which(Forest[[i]]$Children[,1]==0)
-		for(j in childNodes){
-			for(k in 1:length(Forest[[i]]$ALeaf[[j]])){
-			for(iterator in 1:length(Forest[[i]]$ALeaf[[j]])){
-				simMatrix[Forest[[i]]$ALeaf[[j]][k],Forest[[i]]$ALeaf[[j]][iterator]] <- simMatrix[Forest[[i]]$ALeaf[[j]][k],Forest[[i]]$ALeaf[[j]][iterator]] + 1
-			}
-			}
+	checkInputMatrix <- function(X){
+		if(is.null(X)){
+			stop("the input is null.")
+		}
+		if(sum(is.na(X)) | sum(is.nan(X)) ){
+			stop("some values are na or nan.")
+		}
+		if(sum(colSums(X)==0) != 0){
+			stop("some columns are all zero.")
 		}
 	}
-	simMatrix <- simMatrix/tS
-	diag(simMatrix) <- 1
-	return(simMatrix)
-}
 
-########### Start Urerf #############
+	createMatrixFromForest <- function(Forest){
+		tS <- Forest[[1]]$TrainSize
+		numTrees <- length(Forest)
+
+		simMatrix <- matrix(0,nrow=tS , ncol=tS)
+
+		for(i in 1:numTrees){
+			childNodes <- which(Forest[[i]]$Children[,1]==0)
+			for(j in childNodes){
+				for(k in 1:length(Forest[[i]]$ALeaf[[j]])){
+					for(iterator in 1:length(Forest[[i]]$ALeaf[[j]])){
+						simMatrix[Forest[[i]]$ALeaf[[j]][k],Forest[[i]]$ALeaf[[j]][iterator]] <- simMatrix[Forest[[i]]$ALeaf[[j]][k],Forest[[i]]$ALeaf[[j]][iterator]] + 1
+					}
+				}
+			}
+		}
+		simMatrix <- simMatrix/numTrees
+		if(any(diag(simMatrix) != 1)){
+			print("diag not zero")
+			diag(simMatrix) <- 1
+		}
+		return(simMatrix)
+	}
+
+	########### Start Urerf #############
 	checkInputMatrix(X)
 
 	normInfo <- normalizeDataInfo(X)
 	X <- normalizeData(X)
-	rfrus <- cmpfun(rfrus)
-	distNNRec <- cmpfun(distNNRec)
-	
-	forest <- invisible(ifelse(is.na(depth),GrowUnsupervisedForest(X,trees=numTrees, MinParent=K), GrowUnsupervisedForest(X,trees=numTrees, MaxDepth=depth)))
-	#forest <- invisible(rfrus(X,trees=numTrees, MinParent=K))
+	GrowUnsupervisedForest <- cmpfun(GrowUnsupervisedForest)
+
+	forest <- 
+		if(is.na(depth)){
+			GrowUnsupervisedForest(X,trees=numTrees, MinParent=K)
+		}else{
+			GrowUnsupervisedForest(X,trees=numTrees, MinParent=K, MaxDepth=depth)
+		}
+
 	sM <- createMatrixFromForest(forest)
 
 	outliers <- apply(sM, 1, function(x) sum(sort(x,decreasing=TRUE)[1:3]))
@@ -464,7 +460,7 @@ is.outlier <- function(X, urerf, standardDev=2){
 
 dataset.outlier <- function(urerf, standardDev){
 
-outliers <- apply(urerf$similarityMatrix, 1, function(x) sum(sort(x,decreasing=TRUE)[1:3]))
+	outliers <- apply(urerf$similarityMatrix, 1, function(x) sum(sort(x,decreasing=TRUE)[1:3]))
 
 	outlierMean <- mean(outliers)
 	outlierSD <- sd(outliers)
@@ -526,7 +522,7 @@ ann <- function(X, urerf, k=3){
 		}
 	}
 
-#	output <- NA
+	#	output <- NA
 	output <- matrix(0,nrow=nrow(X), ncol=k)
 	for(i in 1:nrow(X)){
 		matches <- numeric(urerf$trainSize) 
@@ -547,25 +543,25 @@ ann <- function(X, urerf, k=3){
 ####### Clustering ####################
 #######################################
 cluster <- function(urerf, numClusters, clusterType="mcquitty"){
-if(clusterType == "average"){
-dissimilarityMatrix <- 	hclust(as.dist(1-urerf$similarityMatrix), method="average")
-clusters <- cutree(dissimilarityMatrix, k=numClusters)
-}else if (clusterType == "mcquitty"){
-dissimilarityMatrix <- 	hclust(as.dist(1-urerf$similarityMatrix), method="mcquitty")
-clusters <- cutree(dissimilarityMatrix, k=numClusters)
-}else if (clusterType == "kmeans"){
-	#This is Hartigan-Wong algorithm
-	clusters <- kmeans(urerf$similarityMatrix, numClusters)
-	clusters <- clusters$cluster
-}else if(clusterType == "medoids"){
-	if(require(cluster)){
-		clusters <- cluster::pam(urerf$similarityMatrix, k=numClusters, diss=TRUE)
-		clusters <- clusters$clustering
-	} else{
-		print("The package 'cluster' is not installed")
+	if(clusterType == "average"){
+		dissimilarityMatrix <- 	hclust(as.dist(1-urerf$similarityMatrix), method="average")
+		clusters <- cutree(dissimilarityMatrix, k=numClusters)
+	}else if (clusterType == "mcquitty"){
+		dissimilarityMatrix <- 	hclust(as.dist(1-urerf$similarityMatrix), method="mcquitty")
+		clusters <- cutree(dissimilarityMatrix, k=numClusters)
+	}else if (clusterType == "kmeans"){
+		#This is Hartigan-Wong algorithm
+		clusters <- kmeans(urerf$similarityMatrix, numClusters)
+		clusters <- clusters$cluster
+	}else if(clusterType == "medoids"){
+		if(require(cluster)){
+			clusters <- cluster::pam(urerf$similarityMatrix, k=numClusters, diss=TRUE)
+			clusters <- clusters$clustering
+		} else{
+			print("The package 'cluster' is not installed")
+		}
 	}
-}
-return(clusters)
+	return(clusters)
 }
 
 
@@ -617,275 +613,4 @@ swissRoll <- function(n1, n2 = NULL, size = 6, dim3 = FALSE, rand_dist_fun = NUL
 
 
 
-
-
-
-
-
-
-
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#                     Create Distance Matrix
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-distDelete <- function(X, Forest, maxDepth=0){
-	n <- nrow(X)
-	dist <- matrix(0, nrow=n, ncol=n)
-
-	numT <- length(Forest)
-	currBin <- integer(n)
-	if (maxDepth==0){
-		for(j in 1:numT){
-			for(i in 1:n){
-				currentNode <- 1L
-				while(Forest[[j]]$Children[currentNode]!=0L){
-					s<-length(Forest[[j]]$matA[[currentNode]])/2
-					rotX <-sum(Forest[[j]]$matA[[currentNode]][(1:s)*2]*X[i,Forest[[j]]$matA[[currentNode]][(1:s)*2-1]])
-					if(rotX<=Forest[[j]]$CutPoint[currentNode]){
-						currentNode <- Forest[[j]]$Children[currentNode,1L]
-					}else{
-						currentNode <- Forest[[j]]$Children[currentNode,2L]
-					}
-				}
-				dist[Forest[[j]]$ALeaf[[currentNode]]] <- dist[Forest[[j]]$ALeaf[[currentNode]]] + 1
-				for(z in 1:(i-1)){
-					if(currBin[z] == currentNode){
-						dist[i,z] <- dist[i,z]+1
-						dist[z,i] <- dist[z,i]+1
-					}
-				}
-				dist[i,i] <- dist[i,i]+1
-			}
-		}
-	}else{
-		for(j in 1:numT){
-			for(i in 1:n){
-				currentNode <- 1L
-				depth <- 1L
-				while(Forest[[j]]$Children[currentNode]!=0L && depth <= maxDepth){
-					s<-length(Forest[[j]]$matA[[currentNode]])/2
-					rotX <-sum(Forest[[j]]$matA[[currentNode]][(1:s)*2]*X[i,Forest[[j]]$matA[[currentNode]][(1:s)*2-1]])
-					if(rotX<=Forest[[j]]$CutPoint[currentNode]){
-						currentNode <- Forest[[j]]$Children[currentNode,1L]
-					}else{
-						currentNode <- Forest[[j]]$Children[currentNode,2L]
-					}
-					depth <- depth+1L
-				}
-				currBin[i] <- currentNode
-				if(i>1){
-					for(z in 1:(i-1)){
-						if(currBin[z] == currentNode){
-							dist[i,z] <- dist[i,z]+1
-							dist[z,i] <- dist[z,i]+1
-						}
-					}
-				}
-				dist[i,i] <- dist[i,i]+1
-			}
-		}
-	}
-	return(dist)        
-}
-
-
-
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#                    Find Potential Nearest Neighbors Vector
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-distNNDelete <- function(X, Forest){
-	#distNN <- function(X, Forest, numSamps){
-	numT <- length(Forest)
-	similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=nrow(X))
-	#similarityMatrix <- matrix(0,nrow=nrow(X) , ncol=numSamps)
-
-	for(sampleNum in 1:nrow(X)){
-		for(j in 1:numT){
-			currentNode <- 1L
-			depth <- 1L
-			while(Forest[[j]]$Children[currentNode]!=0L){
-				s<-length(Forest[[j]]$matA[[currentNode]])/2
-				rotX <-sum(Forest[[j]]$matA[[currentNode]][(1:s)*2]*X[sampleNum,][Forest[[j]]$matA[[currentNode]][(1:s)*2-1]])
-				if(rotX<=Forest[[j]]$CutPoint[currentNode]){
-					currentNode <- Forest[[j]]$Children[currentNode,1L]
-				}else{
-					currentNode <- Forest[[j]]$Children[currentNode,2L]
-				}
-				depth <- depth+1L
-			}
-			similarityMatrix[sampleNum, Forest[[j]]$ALeaf[[currentNode]]] <- similarityMatrix[sampleNum, Forest[[j]]$ALeaf[[currentNode]]] + 1
-		}
-	}
-	return(similarityMatrix) #this is the similarity vector 
-}
-
-distNNRec <- function(X, Forest){
-	numT <- length(Forest)
-	simMatrix <- matrix(0,nrow=nrow(X) , ncol=nrow(X))
-
-	recursiveTreeTraversal <- function(currNode, elementsInNode, treeNum){
-		if(Forest[[treeNum]]$Children[currNode]==0L){
-			for(t in which(elementsInNode)){
-				for(m in which(elementsInNode)){
-					simMatrix[t,m] <<- simMatrix[t,m]+1
-				}
-			}
-			return()
-		}
-
-		s<-length(Forest[[treeNum]]$matA[[currNode]])/2
-		rotX <- apply(X[elementsInNode,Forest[[treeNum]]$matA[[currNode]][(1:s)*2-1], drop=FALSE], 1, function(x) sum(Forest[[treeNum]]$matA[[currNode]][(1:s)*2]*x))
-		moveLeft <- rotX<=Forest[[treeNum]]$CutPoint[currNode]
-
-		leftElements <- elementsInNode
-		leftElements[which(elementsInNode)[!moveLeft]] <- FALSE
-		recursiveTreeTraversal( Forest[[treeNum]]$Children[currNode,1L], leftElements, treeNum)
-
-		rightElements <- elementsInNode
-		rightElements[which(elementsInNode)[moveLeft]] <- FALSE
-		recursiveTreeTraversal( Forest[[treeNum]]$Children[currNode,2L], rightElements, treeNum)
-	}
-
-	for(j in 1:numT){
-		recursiveTreeTraversal(1L, rep(TRUE, nrow(X)), j)
-	}
-
-	return(simMatrix) #this is the similarity vector 
-}
-
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#                    Find Nearest Neighbors from similarity vector
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-distNNkDelete <- function(y, X, sv, k, adder){
-	index <- order(sv, decreasing=TRUE)
-	simCount <- tabulate(sv)
-	multiplier  <- adder
-	if(sum(simCount) < multiplier+k){
-		remainingNN <- sum(simCount)
-		print("Not enough points.  Decrease search depth.")
-		flush.console()
-		return(NULL)
-	}else{
-		remainingNN <- multiplier+k
-	}
-	simLength <- length(simCount)
-	NNindex <- NULL
-	while (remainingNN >0){
-		if (remainingNN >= simCount[simLength]){
-			if(simCount[simLength]>0){
-				NNindex <- c(NNindex, index[1:simCount[simLength]])
-				index <- index[-(1:simCount[simLength])]
-				remainingNN <- remainingNN-simCount[simLength]
-			}
-			simLength <- simLength -1
-		}else{
-			#NNorder <- order(sqrt(rowSums((y-X[index[1:simCount[simLength]],])^2))) 
-			NNorder <- order(sqrt(rowSums(sweep(X[index[1:simCount[simLength]],],2,y)^2))) 
-			NNindex <- c(NNindex, index[NNorder[1:remainingNN]])
-			remainingNN = 0
-		}
-	}
-	kNearest <- order(sqrt(rowSums(sweep(X[NNindex,],2,testSamples[1,])^2)))[1:k]
-
-
-	return(NNindex[kNearest])
-}
-
-
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#                    Check K-Means 
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-CheckKmeansDelete <- function(Y, Yp){
-	uY <- length(unique(Y))
-	classCt <- tabulate(Y, uY)
-
-	class_order <- order(classCt, decreasing=TRUE)
-	used_class <-NULL 
-	curr_class <- NA
-	class_error <- NA
-	for(z in 1:uY){
-		Cindex <- which(Y==class_order[z])
-		subClassCt <- tabulate(Yp[Cindex], uY)
-		subClass_order <- order(subClassCt, decreasing=TRUE)
-		if(!is.null(used_class)){
-			for(m in 1:uY){
-				curr_class <- subClass_order[m]
-				if(!(curr_class%in%used_class)){
-					break
-				}
-			}
-			used_class <- c(used_class, curr_class)
-		}else{
-			curr_class <- subClass_order[1]
-			used_class <- curr_class
-		}
-
-		class_error[z] <- subClassCt[curr_class]/classCt[class_order[z]]
-	}
-	print(class_error)
-	oe <- sum(class_error*classCt[class_order])/length(Y)
-	cat("the overall error is: ", oe, "\n")
-	flush.console()
-}
-
-
-
-################################################################################
-################################################################################
-
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#                     Hartigan's Method
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-findClustersDelete <- function(nearnessMatrix, numClusters=3, numNearestNeighbors=10){
-	q <- rep(0,numClusters)
-	clusters <- vector("list", numClusters)
-	numSamples <- nrow(nearnessMatrix)
-	numNN <- numNearestNeighbors
-
-	randomOrdering <- sample(1:numSamples, numSamples)
-	#  randomOrdering <- 1:numSamples
-
-	step <- floor(numSamples/numClusters)
-	stepStart <- 1
-	stepEnd <- stepStart+step
-	for(z in 1:(numClusters-1)){
-		clusters[[z]] <- randomOrdering[stepStart:stepEnd]
-		stepStart <- stepEnd+1
-		stepEnd <- stepStart+step
-	}
-	clusters[[numClusters]] <- randomOrdering[stepStart:numSamples]
-
-	for(z in 1:numSamples){
-		nearnessMatrix[z,z] <- 0
-	}
-
-	for(z in 1:numClusters){
-		for(m in clusters[[z]]){
-			biggestNN <- order(nearnessMatrix[m,], decreasing=TRUE)[1:numNN]
-			q[z] <- q[z] + sum(biggestNN%in%clusters[[z]])
-		}
-	}
-	print(paste("initial q", q))
-
-	currQ <- rep(0,numClusters)
-	for(p in 1:30){
-		for(z in 1:numClusters){
-			for(m in clusters[[z]]){
-				biggestNN <- order(nearnessMatrix[m,], decreasing=TRUE)[1:numNN]
-				for(k in 1:numClusters){
-					currQ[k] <- sum(biggestNN%in%clusters[[k]])
-				}
-				QOrder <- order(currQ, decreasing=TRUE)
-				if(QOrder[1] != z){
-					q[z] <- q[z] - currQ[z]
-					q[QOrder[1]] <- q[QOrder[1]] + currQ[QOrder[1]]
-					clusters[[z]] <- clusters[[z]][-which(clusters[[z]]==m)]
-					clusters[[QOrder[1]]] <- c(clusters[[QOrder[1]]], m)
-				}
-			}
-		}
-	}
-
-	print(paste("after 1", q))
-	return(clusters)
-}
 
