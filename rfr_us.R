@@ -290,6 +290,7 @@ GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", ba
 # can even greater than p.
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
 	makeAB <- function(options){
 		p <- options[[1L]]
 		d <- options[[2L]]
@@ -317,7 +318,7 @@ GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", ba
 ### Create Urerf Object - MinParent ###
 #######################################
 
-urerf <- function(X, numTrees=100, K=3, depth=NA){
+urerf <- function(X, numTrees=100, K=3, depth=NA, mtry=round(ncol(X)^.5)){
 
 	normalizeData <- function(X){
 		X <- sweep(X, 2, apply(X, 2, min), "-")
@@ -375,9 +376,9 @@ urerf <- function(X, numTrees=100, K=3, depth=NA){
 
 	forest <- 
 		if(is.na(depth)){
-			GrowUnsupervisedForest(X,trees=numTrees, MinParent=K)
+			GrowUnsupervisedForest(X,trees=numTrees, MinParent=K, options=c(ncol(X), mtry,1L, 1/ncol(X)))
 		}else{
-			GrowUnsupervisedForest(X,trees=numTrees, MinParent=K, MaxDepth=depth)
+			GrowUnsupervisedForest(X,trees=numTrees, MinParent=K, MaxDepth=depth,options=c(ncol(X), mtry,1L, 1/ncol(X)))
 		}
 
 	sM <- createMatrixFromForest(forest)
