@@ -299,7 +299,11 @@ GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", ba
 			rho<-options[[4L]]
 			nnzs <- round(p*d*rho)
 			sparseM <- matrix(0L, nrow=p, ncol=d)
-			sparseM[sample(1L:(p*d),nnzs, replace=F)]<-sample(c(1L,-1L),nnzs,replace=TRUE)
+			featuresToTry <- sample(1:p,d,replace=FALSE)
+#			sparseM[sample(1L:(p*d),nnzs, replace=F)]<-sample(c(1L,-1L),nnzs,replace=TRUE)
+			for(j in 1:d){
+sparseM[featuresToTry[j],j] <- 1
+			}
 		}
 		#The below returns a matrix after removing zero columns in sparseM.
 		ind<- which(sparseM!=0,arr.ind=TRUE)

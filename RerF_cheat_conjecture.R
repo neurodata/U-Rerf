@@ -20,7 +20,7 @@ x2=2*t*(1-t)
 x3=(1-t)^2
 data = cbind(x1, x2, x3)
 
-f_signal=urerf(data, num_of_trees, knn, mtry=6)
+f_signal=urerf(data, num_of_trees, knn)
 Rerf_W_signal=f_signal$similarityMatrix
 
 # g_signal=randomForest(data, ntree=num_of_trees, keep.forest=FALSE, proximity=TRUE)
@@ -33,6 +33,8 @@ matrix_of_0 = matrix(rep(0, num_of_points*(high_dim-3)), nrow = num_of_points, n
 high_dim_data = cbind(data, matrix_of_0)
 
 dim <- high_dim
+
+# change gaus to false to use uniform noise.  change gaus to true to use gaussian noise.
 gaus <- FALSE
 if(gaus){
 	cov_matrix = matrix(rep(0, dim*dim), nrow = dim, ncol = dim)
@@ -86,7 +88,7 @@ Rerf_W_noise=f_noise$similarityMatrix
 
 Rerf_W_mix=(3/dim)*Rerf_W_signal + ((dim-3)/dim)*Rerf_W_noise
 
-Rerf_W_uncheat = urerf(high_dim_noise_data, 20, K=10, mtry=3)$similarityMatrix
+Rerf_W_uncheat = urerf(high_dim_noise_data, 20, K=10)$similarityMatrix
 
 
 print("Rerf uncheat")
