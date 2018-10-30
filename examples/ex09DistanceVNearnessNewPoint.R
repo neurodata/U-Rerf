@@ -9,7 +9,7 @@ m <- 100
 # number of samples in dataset
 sizeD <- 1000
 # the 'k' of k nearest neighbors
-k = 20
+k = 33
 depth = 8
 
 # create a sizeD by m synthetic dataset
@@ -20,12 +20,12 @@ Y[3,] <- X[3,]
 
 # find the actual euclidean distance between all samples of the synthetic dataset
 # create a similarity matrix using urerf
-sM <- urerf(X, numtrees, depth=depth)
+sM <- urerf(X, numtrees, K= k)
 
 
 ann2 <- function(X, urerfS){
-	X <- sweep(X, 2, urerfS$colMin, "-")
-	X <-	 sweep(X, 2, urerfS$colMax, "/")
+#	X <- sweep(X, 2, urerfS$colMin, "-")
+#	X <-	 sweep(X, 2, urerfS$colMax, "/")
 
 	numTrees <- length(urerfS$forest)
 

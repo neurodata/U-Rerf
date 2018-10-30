@@ -322,7 +322,7 @@ sparseM[featuresToTry[j],j] <- 1
 ### Create Urerf Object - MinParent ###
 #######################################
 
-urerf <- function(X, numTrees=100, K=3, depth=NA, mtry=round(ncol(X)^.5)){
+urerfNormalize <- function(X, numTrees=100, K=3, depth=NA, mtry=round(ncol(X)^.5)){
 
 	normalizeData <- function(X){
 		X <- sweep(X, 2, apply(X, 2, min), "-")
@@ -332,6 +332,17 @@ urerf <- function(X, numTrees=100, K=3, depth=NA, mtry=round(ncol(X)^.5)){
 	normalizeDataInfo <- function(X){
 		colMin <- apply(X,2,min)
 		colMax <- apply(sweep(X, 2, apply(X, 2, min)), 2, max)
+		list(colMin=colMin, colMax=colMax)
+	}
+	
+normalizeDataTest <- function(X){
+		X <- sweep(X, 2, apply(X, 2, min), "-")
+		sweep(X, 2, apply(X, 2, function(x) max(x)-min(x)), "/")
+	}
+
+	normalizeDataInfoTest <- function(X){
+		colMin <- apply(X,2,min)
+		colMax <- apply(sweep(X, 2, apply(X, 2, min)), 2, function(x) max(x)-min(x))
 		list(colMin=colMin, colMax=colMax)
 	}
 
@@ -402,6 +413,79 @@ urerf <- function(X, numTrees=100, K=3, depth=NA, mtry=round(ncol(X)^.5)){
 
 
 
+urerf <- function(X, numTrees=100, K=10, depth=NA, mtry=round(ncol(X)^.5)){
+
+	normalizeData <- function(X){
+		X
+	}
+
+	normalizeDataInfo <- function(X){
+		colMin <- 0
+		colMax <-1 
+		list(colMin=colMin, colMax=colMax)
+	}
+
+	checkInputMatrix <- function(X){
+		if(is.null(X)){
+			stop("the input is null.")
+		}
+		if(sum(is.na(X)) | sum(is.nan(X)) ){
+			stop("some values are na or nan.")
+		}
+		if(sum(colSums(X)==0) != 0){
+			stop("some columns are all zero.")
+		}
+	}
+
+	createMatrixFromForest <- function(Forest){
+		tS <- Forest[[1]]$TrainSize
+		numTrees <- length(Forest)
+
+		simMatrix <- matrix(0,nrow=tS , ncol=tS)
+
+		for(i in 1:numTrees){
+			childNodes <- which(Forest[[i]]$Children[,1]==0)
+			for(j in childNodes){
+				for(k in 1:length(Forest[[i]]$ALeaf[[j]])){
+					for(iterator in 1:length(Forest[[i]]$ALeaf[[j]])){
+						simMatrix[Forest[[i]]$ALeaf[[j]][k],Forest[[i]]$ALeaf[[j]][iterator]] <- simMatrix[Forest[[i]]$ALeaf[[j]][k],Forest[[i]]$ALeaf[[j]][iterator]] + 1
+					}
+				}
+			}
+		}
+		simMatrix <- simMatrix/numTrees
+		if(any(diag(simMatrix) != 1)){
+			print("diag not zero")
+			diag(simMatrix) <- 1
+		}
+		return(simMatrix)
+	}
+
+
+	########### Start Urerf #############
+	checkInputMatrix(X)
+
+	normInfo <- normalizeDataInfo(X)
+	X <- normalizeData(X)
+	GrowUnsupervisedForest <- cmpfun(GrowUnsupervisedForest)
+
+	forest <- 
+		if(is.na(depth)){
+			GrowUnsupervisedForest(X,trees=numTrees, MinParent=K, options=c(ncol(X), mtry,1L, 1/ncol(X)))
+		}else{
+			GrowUnsupervisedForest(X,trees=numTrees, MinParent=K, MaxDepth=depth,options=c(ncol(X), mtry,1L, 1/ncol(X)))
+		}
+
+	sM <- createMatrixFromForest(forest)
+
+	outliers <- apply(sM, 1, function(x) sum(sort(x,decreasing=TRUE)[1:3]))
+
+	outlierMean <- mean(outliers)
+	outlierSD <- sd(outliers)
+	print(" ")
+
+	return(list(similarityMatrix=sM, forest=forest, colMin=normInfo$colMin, colMax=normInfo$colMax, outlierMean=outlierMean, outlierSD=outlierSD, trainSize=nrow(X)))
+}
 
 
 
@@ -411,7 +495,23 @@ urerf <- function(X, numTrees=100, K=3, depth=NA, mtry=round(ncol(X)^.5)){
 
 
 
-
+#######################################
+######## How often are features selected to split on ######
+#######################################
+feature.use <- function(urerf){
+	fUse <- integer()
+	for(i in 1:length(urerf$forest)){
+		for(j in 1:length(urerf$forest[[i]]$matA)){
+			if(!is.null(urerf$forest[[i]]$matA[[j]])){
+				if(is.na(fUse[urerf$forest[[i]]$matA[[j]][1]])){
+					fUse[urerf$forest[[i]]$matA[[j]][1]] <- 0
+				}
+fUse[urerf$forest[[i]]$matA[[j]][1]] <- fUse[urerf$forest[[i]]$matA[[j]][1]] +1
+			}
+		}
+	}
+	fUse
+}
 
 
 
@@ -458,6 +558,54 @@ is.outlier <- function(X, urerf, standardDev=2){
 	}
 	output
 }
+
+
+#######################################
+######## Out of Data Set Outlier ######
+#######################################
+
+newPointDist <- function(X, urerf, k){
+
+	X <- sweep(X, 2, urerf$colMin, "-")
+	X <- sweep(X, 2, urerf$colMax, "/")
+
+	numTrees <- length(urerf$forest)
+
+	recursiveTreeTraversal <- function(currNode, testCase, treeNum){
+		if(urerf$forest[[treeNum]]$Children[currNode]==0L){
+			return(urerf$forest[[treeNum]]$ALeaf[currNode])
+		}
+
+		s<-length(urerf$forest[[treeNum]]$matA[[currNode]])/2
+		rotX <- apply(X[testCase,urerf$forest[[treeNum]]$matA[[currNode]][(1:s)*2-1], drop=FALSE], 1, function(x) sum(urerf$forest[[treeNum]]$matA[[currNode]][(1:s)*2]*x))
+		moveLeft <- rotX<=urerf$forest[[treeNum]]$CutPoint[currNode]
+
+		if(moveLeft){
+			recursiveTreeTraversal( urerf$forest[[treeNum]]$Children[currNode,1L], testCase, treeNum)
+		}else{
+			recursiveTreeTraversal( urerf$forest[[treeNum]]$Children[currNode,2L], testCase, treeNum)
+		}
+	}
+
+	output <- logical(nrow(X))
+	for(i in 1:nrow(X)){
+		matches <- numeric(urerf$trainSize) 
+		for(j in 1:numTrees){
+			elementsInNode <- recursiveTreeTraversal(1L, i, j)
+			if(length(elementsInNode[[1]])==0){
+				print("found one")
+			}
+			matches[elementsInNode[[1]]] <- matches[elementsInNode[[1]]] + 1
+		}
+		output[i] <- sum(sort(matches,decreasing=TRUE)[1:k])
+	}
+	output
+}
+
+
+
+
+
 
 #######################################
 ######## K outliers ######

@@ -4,13 +4,14 @@ library(scatterplot3d)
 library(MASS)
 
 
+set.seed(10)
 # number of trees for forest
-numtrees <- 100
+numtrees <- 200
 # number of samples in dataset
 sizeD <- 2000
 # the 'k' of k nearest neighbors
 depth = 8
-k = 3
+k = sqrt(sizeD) 
 
 
 # create a sizeD by m synthetic dataset
@@ -31,7 +32,9 @@ with(data.frame(X), {
 dev.off()
 
 # create a similarity matrix using urerf
-similarityMatrix <- 1-(urerf(X, numtrees, depth=depth))$similarityMatrix
+similarityMatrix <- urerf(X, numtrees,K=k )$similarityMatrix
+similarityMatrix <- 1-(similarityMatrix/1.01)
+diag(similarityMatrix) <- 1
 
 fit <- cmdscale(as.dist(similarityMatrix), eig=FALSE, k=2)
 
@@ -47,17 +50,8 @@ plot(fit$points, col=rainbow(sizeD), main="Nonmetric MDS")
 dev.off()
 
 
-# number of trees for forest
-numtrees <- 100
-# number of samples in dataset
-sizeD <- 2000
-# the 'k' of k nearest neighbors
-k <- 3
-depth <- 8
 #line dimensions
 m <- 10
-
-
 # create a sizeD by m synthetic dataset
 	X <- matrix(sort(runif(m*sizeD)), nrow=sizeD, ncol=m)
 X <- X[order(X[,3], X[,1], X[,2]),]
@@ -75,7 +69,10 @@ with(data.frame(X), {
 dev.off()
 
 # create a similarity matrix using urerf
-similarityMatrix <- 1-(urerf(X, numtrees, depth=depth))$similarityMatrix
+similarityMatrix <- urerf(X, numtrees,K=k )$similarityMatrix
+similarityMatrix <- 1-(similarityMatrix/1.01)
+diag(similarityMatrix) <- 1
+
 
 fit <- cmdscale(as.dist(similarityMatrix), eig=FALSE, k=2)
 
