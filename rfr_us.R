@@ -4,11 +4,7 @@ enableJIT(3)
 
 ############################################################################
 
-
-############################################################################
-GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replacement=TRUE, FUN=makeAB, options=c(ncol(X), round(ncol(X)^.5),1L, 1/ncol(X)), COOB=TRUE, Progress=TRUE){
-
-	TwoMeansCut <- function(X){
+TwoMeansCut <- function(X){
 		minVal <- min(X)
 		maxVal <- max(X)
 		if(minVal == maxVal){ return(NULL)}
@@ -58,6 +54,22 @@ GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", ba
 		return(c(cutPoint, minErr))
 	}
 
+
+checkInputMatrix <- function(X){
+		if(is.null(X)){
+			stop("the input is null.")
+		}
+		if(sum(is.na(X)) | sum(is.nan(X)) ){
+			stop("some values are na or nan.")
+		}
+		if(sum(colSums(X)==0) != 0){
+			stop("some columns are all zero.")
+		}
+	}
+
+
+############################################################################
+GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replacement=TRUE, FUN=makeAB, options=c(ncol(X), round(ncol(X)^.5),1L, 1/ncol(X)), COOB=TRUE, Progress=TRUE){
 
 	############# Start Growing Forest #################
 
@@ -231,7 +243,6 @@ GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", ba
 				# Pop the current node off the node stack
 				# this allows for a breadth first traversal
 				Assigned2Leaf[[CurrentNode]] <- Assigned2Bag[[CurrentNode]]
-				#Assigned2Leaf[[CurrentNode]] <- unique(NodeRows[[1L]])
 				NodeStack <- NodeStack[-1L]
 				NodeStack <- c(NextUnusedNode, NextUnusedNode+1L, NodeStack)
 				NextUnusedNode <- NextUnusedNode + 2L
@@ -240,10 +251,6 @@ GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", ba
 				CutPoint[CurrentNode] <- cut_val
 			}else{
 				# There wasn't a good split so ignore this node and move to the next
-
-				#TODO why was there a stop here?
-				#	print(paste("nM ",numMove, ", NSize ", NdSize))
-				#    stop("Trying to move too many or not enough")
 
 				Assigned2Leaf[[CurrentNode]] <- Assigned2Bag[[CurrentNode]]
 				NodeStack <- NodeStack[-1L]
@@ -263,18 +270,13 @@ GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", ba
 			gc()
 		}
 		# save current tree structure to the forest
-		if(bagging!=0 && COOB){
 			forest[[treeX]] <- list("CutPoint"=CutPoint[1:highestParent],"Children"=Children[1L:(NextUnusedNode-1L),,drop=FALSE], "matA"=matA[1L:highestParent], "ALeaf"=Assigned2Leaf[1L:(NextUnusedNode-1L)], "TrainSize"=nrow(X))
-		}else{
-			forest[[treeX]] <- list("CutPoint"=CutPoint[1:highestParent],"Children"=Children[1L:(NextUnusedNode-1L),,drop=FALSE], "matA"=matA[1L:highestParent], "ALeaf"=Assigned2Leaf[1L:(NextUnusedNode-1L)],"TrainSize"=nrow(X))
-		}
+
 		if(Progress){
 			cat("|")
 			flush.console()
 		}
-		#	print(treeX)
 	}
-	#print(length(forest))
 	return(forest)
 }
 
@@ -300,7 +302,9 @@ GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", ba
 			nnzs <- round(p*d*rho)
 			sparseM <- matrix(0L, nrow=p, ncol=d)
 			featuresToTry <- sample(1:p,d,replace=FALSE)
-#			sparseM[sample(1L:(p*d),nnzs, replace=F)]<-sample(c(1L,-1L),nnzs,replace=TRUE)
+			# the commented line below creates linear combinations of features to try
+      #	sparseM[sample(1L:(p*d),nnzs, replace=F)]<-sample(c(1L,-1L),nnzs,replace=TRUE)
+			# the for loop below creates a standard random forest set of features to try
 			for(j in 1:d){
 sparseM[featuresToTry[j],j] <- 1
 			}
@@ -312,50 +316,29 @@ sparseM[featuresToTry[j],j] <- 1
 
 
 #######################################
-####### Create Similarity Matrix ######
-#######################################
-
-
-
-
-#######################################
 ### Create Urerf Object - MinParent ###
 #######################################
 
-urerfNormalize <- function(X, numTrees=100, K=3, depth=NA, mtry=round(ncol(X)^.5)){
+urerf <- function(X, numTrees=100, K=round(nrow(X)^.5), depth=NA, mtry=round(ncol(X)^.5), normalizeData=TRUE){
 
-	normalizeData <- function(X){
+	normalizeTheData <- function(X, normData){
+		if (normData){
 		X <- sweep(X, 2, apply(X, 2, min), "-")
-		sweep(X, 2, apply(X, 2, max), "/")
+		return(sweep(X, 2, apply(X, 2, max), "/"))
+		}else{
+return(X)
+		}
 	}
 
-	normalizeDataInfo <- function(X){
+	normalizeDataInfo <- function(X, normData){
+		if(normData){
 		colMin <- apply(X,2,min)
 		colMax <- apply(sweep(X, 2, apply(X, 2, min)), 2, max)
+		}else{
+colMin <- 0
+		colMax <-1
+		}
 		list(colMin=colMin, colMax=colMax)
-	}
-	
-normalizeDataTest <- function(X){
-		X <- sweep(X, 2, apply(X, 2, min), "-")
-		sweep(X, 2, apply(X, 2, function(x) max(x)-min(x)), "/")
-	}
-
-	normalizeDataInfoTest <- function(X){
-		colMin <- apply(X,2,min)
-		colMax <- apply(sweep(X, 2, apply(X, 2, min)), 2, function(x) max(x)-min(x))
-		list(colMin=colMin, colMax=colMax)
-	}
-
-	checkInputMatrix <- function(X){
-		if(is.null(X)){
-			stop("the input is null.")
-		}
-		if(sum(is.na(X)) | sum(is.nan(X)) ){
-			stop("some values are na or nan.")
-		}
-		if(sum(colSums(X)==0) != 0){
-			stop("some columns are all zero.")
-		}
 	}
 
 	createMatrixFromForest <- function(Forest){
@@ -385,8 +368,8 @@ normalizeDataTest <- function(X){
 	########### Start Urerf #############
 	checkInputMatrix(X)
 
-	normInfo <- normalizeDataInfo(X)
-	X <- normalizeData(X)
+	normInfo <- normalizeDataInfo(X,normalizeData)
+	X <- normalizeTheData(X,normalizeData)
 	GrowUnsupervisedForest <- cmpfun(GrowUnsupervisedForest)
 
 	forest <- 
@@ -406,93 +389,6 @@ normalizeDataTest <- function(X){
 
 	return(list(similarityMatrix=sM, forest=forest, colMin=normInfo$colMin, colMax=normInfo$colMax, outlierMean=outlierMean, outlierSD=outlierSD, trainSize=nrow(X)))
 }
-
-
-
-
-
-
-
-urerf <- function(X, numTrees=100, K=10, depth=NA, mtry=round(ncol(X)^.5)){
-
-	normalizeData <- function(X){
-		X
-	}
-
-	normalizeDataInfo <- function(X){
-		colMin <- 0
-		colMax <-1 
-		list(colMin=colMin, colMax=colMax)
-	}
-
-	checkInputMatrix <- function(X){
-		if(is.null(X)){
-			stop("the input is null.")
-		}
-		if(sum(is.na(X)) | sum(is.nan(X)) ){
-			stop("some values are na or nan.")
-		}
-		if(sum(colSums(X)==0) != 0){
-			stop("some columns are all zero.")
-		}
-	}
-
-	createMatrixFromForest <- function(Forest){
-		tS <- Forest[[1]]$TrainSize
-		numTrees <- length(Forest)
-
-		simMatrix <- matrix(0,nrow=tS , ncol=tS)
-
-		for(i in 1:numTrees){
-			childNodes <- which(Forest[[i]]$Children[,1]==0)
-			for(j in childNodes){
-				for(k in 1:length(Forest[[i]]$ALeaf[[j]])){
-					for(iterator in 1:length(Forest[[i]]$ALeaf[[j]])){
-						simMatrix[Forest[[i]]$ALeaf[[j]][k],Forest[[i]]$ALeaf[[j]][iterator]] <- simMatrix[Forest[[i]]$ALeaf[[j]][k],Forest[[i]]$ALeaf[[j]][iterator]] + 1
-					}
-				}
-			}
-		}
-		simMatrix <- simMatrix/numTrees
-		if(any(diag(simMatrix) != 1)){
-			print("diag not zero")
-			diag(simMatrix) <- 1
-		}
-		return(simMatrix)
-	}
-
-
-	########### Start Urerf #############
-	checkInputMatrix(X)
-
-	normInfo <- normalizeDataInfo(X)
-	X <- normalizeData(X)
-	GrowUnsupervisedForest <- cmpfun(GrowUnsupervisedForest)
-
-	forest <- 
-		if(is.na(depth)){
-			GrowUnsupervisedForest(X,trees=numTrees, MinParent=K, options=c(ncol(X), mtry,1L, 1/ncol(X)))
-		}else{
-			GrowUnsupervisedForest(X,trees=numTrees, MinParent=K, MaxDepth=depth,options=c(ncol(X), mtry,1L, 1/ncol(X)))
-		}
-
-	sM <- createMatrixFromForest(forest)
-
-	outliers <- apply(sM, 1, function(x) sum(sort(x,decreasing=TRUE)[1:3]))
-
-	outlierMean <- mean(outliers)
-	outlierSD <- sd(outliers)
-	print(" ")
-
-	return(list(similarityMatrix=sM, forest=forest, colMin=normInfo$colMin, colMax=normInfo$colMax, outlierMean=outlierMean, outlierSD=outlierSD, trainSize=nrow(X)))
-}
-
-
-
-
-
-
-
 
 
 #######################################
@@ -512,9 +408,6 @@ fUse[urerf$forest[[i]]$matA[[j]][1]] <- fUse[urerf$forest[[i]]$matA[[j]][1]] +1
 	}
 	fUse
 }
-
-
-
 
 
 #######################################
