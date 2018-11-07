@@ -7,7 +7,8 @@ enableJIT(3)
 TwoMeansCut <- function(X){
 		minVal <- min(X)
 		maxVal <- max(X)
-		if(minVal == maxVal){ return(NULL)}
+if(maxVal==minVal){return(NULL)}
+#if(maxVal-minVal < .01){return(NULL)}
 		sizeX <- length(X)
 		X <- sort(X[which(X!=0)])
 		sizeNNZ <- length(X)
@@ -39,6 +40,7 @@ TwoMeansCut <- function(X){
 				sumRight <- sumRight - m
 				meanLeft <- sumLeft/leftsize
 				meanRight <- sumRight/rightsize
+				
 				errLeft <-sum((X[1:index]-meanLeft)^2) + sizeZ * (meanLeft^2)
 				errRight <-sum((X[(index+1):sizeNNZ]-meanRight)^2)
 
@@ -51,6 +53,7 @@ TwoMeansCut <- function(X){
 				index <- index+1
 			}
 		}
+		if(minErr == Inf){return(NULL)}
 		return(c(cutPoint, minErr))
 	}
 
@@ -303,11 +306,11 @@ GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", ba
 			sparseM <- matrix(0L, nrow=p, ncol=d)
 			featuresToTry <- sample(1:p,d,replace=FALSE)
 			# the commented line below creates linear combinations of features to try
-      #	sparseM[sample(1L:(p*d),nnzs, replace=F)]<-sample(c(1L,-1L),nnzs,replace=TRUE)
+      	sparseM[sample(1L:(p*d),nnzs, replace=F)]<-sample(c(1L,-1L),nnzs,replace=TRUE)
 			# the for loop below creates a standard random forest set of features to try
-			for(j in 1:d){
-sparseM[featuresToTry[j],j] <- 1
-			}
+			#for(j in 1:d){
+#sparseM[featuresToTry[j],j] <- 1
+#			}
 		}
 		#The below returns a matrix after removing zero columns in sparseM.
 		ind<- which(sparseM!=0,arr.ind=TRUE)
@@ -381,13 +384,13 @@ colMin <- 0
 
 	sM <- createMatrixFromForest(forest)
 
-	outliers <- apply(sM, 1, function(x) sum(sort(x,decreasing=TRUE)[1:3]))
+	outliers <- apply(sM, 1, function(x) sum(sort(x,decreasing=TRUE)[1:(2*K)]))
 
 	outlierMean <- mean(outliers)
 	outlierSD <- sd(outliers)
 	print(" ")
 
-	return(list(similarityMatrix=sM, forest=forest, colMin=normInfo$colMin, colMax=normInfo$colMax, outlierMean=outlierMean, outlierSD=outlierSD, trainSize=nrow(X)))
+	return(list(similarityMatrix=sM, forest=forest, colMin=normInfo$colMin, colMax=normInfo$colMax, outlierMean=outlierMean, outlierSD=outlierSD, trainSize=nrow(X), K=K))
 }
 
 
@@ -420,6 +423,7 @@ is.outlier <- function(X, urerf, standardDev=2){
 	X <- sweep(X, 2, urerf$colMax, "/")
 
 	numTrees <- length(urerf$forest)
+	leafSize <- urerf$K
 
 	recursiveTreeTraversal <- function(currNode, testCase, treeNum){
 		if(urerf$forest[[treeNum]]$Children[currNode]==0L){
@@ -447,50 +451,7 @@ is.outlier <- function(X, urerf, standardDev=2){
 			}
 			matches[elementsInNode[[1]]] <- matches[elementsInNode[[1]]] + 1
 		}
-		output[i] <- sum(sort(matches,decreasing=TRUE)[1:3])/numTrees < (urerf$outlierMean-standardDev*urerf$outlierSD)
-	}
-	output
-}
-
-
-#######################################
-######## Out of Data Set Outlier ######
-#######################################
-
-newPointDist <- function(X, urerf, k){
-
-	X <- sweep(X, 2, urerf$colMin, "-")
-	X <- sweep(X, 2, urerf$colMax, "/")
-
-	numTrees <- length(urerf$forest)
-
-	recursiveTreeTraversal <- function(currNode, testCase, treeNum){
-		if(urerf$forest[[treeNum]]$Children[currNode]==0L){
-			return(urerf$forest[[treeNum]]$ALeaf[currNode])
-		}
-
-		s<-length(urerf$forest[[treeNum]]$matA[[currNode]])/2
-		rotX <- apply(X[testCase,urerf$forest[[treeNum]]$matA[[currNode]][(1:s)*2-1], drop=FALSE], 1, function(x) sum(urerf$forest[[treeNum]]$matA[[currNode]][(1:s)*2]*x))
-		moveLeft <- rotX<=urerf$forest[[treeNum]]$CutPoint[currNode]
-
-		if(moveLeft){
-			recursiveTreeTraversal( urerf$forest[[treeNum]]$Children[currNode,1L], testCase, treeNum)
-		}else{
-			recursiveTreeTraversal( urerf$forest[[treeNum]]$Children[currNode,2L], testCase, treeNum)
-		}
-	}
-
-	output <- logical(nrow(X))
-	for(i in 1:nrow(X)){
-		matches <- numeric(urerf$trainSize) 
-		for(j in 1:numTrees){
-			elementsInNode <- recursiveTreeTraversal(1L, i, j)
-			if(length(elementsInNode[[1]])==0){
-				print("found one")
-			}
-			matches[elementsInNode[[1]]] <- matches[elementsInNode[[1]]] + 1
-		}
-		output[i] <- sum(sort(matches,decreasing=TRUE)[1:k])
+		output[i] <- sum(sort(matches,decreasing=TRUE)[1:(2*leafSize)])/numTrees < (urerf$outlierMean-standardDev*urerf$outlierSD)
 	}
 	output
 }
@@ -498,20 +459,26 @@ newPointDist <- function(X, urerf, k){
 
 
 
-
-
 #######################################
-######## K outliers ######
+############ K outliers ###############
 #######################################
 
-dataset.outlier <- function(urerf, standardDev){
+dataset.outlier <- function(urerf, standardDev=NA, rfVersion=FALSE){
+	if(rfVersion){
+		n <- nrow(urerfS$similarityMatrix)
+		sm <- rowSums((1-urerfS$similarityMatrix)^2)
 
-	outliers <- apply(urerf$similarityMatrix, 1, function(x) sum(sort(x,decreasing=TRUE)[1:3]))
+		outlierScore <- (sm-median(sm))/mad(sm)
+	}else{
+		outlierSum <- apply(urerf$similarityMatrix, 1, function(x) sum(sort(x,decreasing=TRUE)[1:(2*urerf$K)]))
+		outlierScore <- (-1*(outlierSum-median(outlierSum))/mad(outlierSum))
+	}
 
-	outlierMean <- mean(outliers)
-	outlierSD <- sd(outliers)
-
-	which(outliers < (outlierMean-standardDev*outlierSD))
+	if(is.na(standardDev)){
+		return(outlierScore)
+	}else{
+		return(which(outlierScore > standardDev))
+	}
 }
 
 
@@ -654,6 +621,75 @@ swissRoll <- function(n1, n2 = NULL, size = 6, dim3 = FALSE, rand_dist_fun = NUL
 		out <- data.frame(y = c(rep(0:1, c(n1, n2))), x1 = c(g1x1, g2x1) + err[,1], x2 = c(g1x2, g2x2) + err[,2])
 	}
 	out
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#######################################
+######## Out of Data Set Outlier ######
+#######################################
+
+newPointDistDelete <- function(X, urerf, k=NA){
+
+	X <- sweep(X, 2, urerf$colMin, "-")
+	X <- sweep(X, 2, urerf$colMax, "/")
+
+	numTrees <- length(urerf$forest)
+if(is.na(k)){	
+	k <- sqrt(urerf$trainSize)
+}
+
+	recursiveTreeTraversal <- function(currNode, testCase, treeNum){
+		if(urerf$forest[[treeNum]]$Children[currNode]==0L){
+			return(urerf$forest[[treeNum]]$ALeaf[currNode])
+		}
+
+		s<-length(urerf$forest[[treeNum]]$matA[[currNode]])/2
+		rotX <- apply(X[testCase,urerf$forest[[treeNum]]$matA[[currNode]][(1:s)*2-1], drop=FALSE], 1, function(x) sum(urerf$forest[[treeNum]]$matA[[currNode]][(1:s)*2]*x))
+		moveLeft <- rotX<=urerf$forest[[treeNum]]$CutPoint[currNode]
+
+		if(moveLeft){
+			recursiveTreeTraversal( urerf$forest[[treeNum]]$Children[currNode,1L], testCase, treeNum)
+		}else{
+			recursiveTreeTraversal( urerf$forest[[treeNum]]$Children[currNode,2L], testCase, treeNum)
+		}
+	}
+
+	output <- logical(nrow(X))
+	for(i in 1:nrow(X)){
+		matches <- numeric(urerf$trainSize) 
+		for(j in 1:numTrees){
+			elementsInNode <- recursiveTreeTraversal(1L, i, j)
+			if(length(elementsInNode[[1]])==0){
+				print("found one")
+			}
+			matches[elementsInNode[[1]]] <- matches[elementsInNode[[1]]] + 1
+		}
+		output[i] <- sum(sort(matches,decreasing=TRUE)[1:k])
+	}
+	output
 }
 
 

@@ -3,14 +3,14 @@ library(ggplot2)
 library(scatterplot3d)
 library(MASS)
 
-
 # number of trees for forest
 numtrees <- 100
 # number of samples in dataset
 sizeD <- 1000
 # the 'k' of k nearest neighbors
 depth = 8
-k = 3
+k = round(sizeD^.5)
+set.seed(20)
 
 
 # create a sizeD by m synthetic dataset
@@ -36,13 +36,68 @@ with(data.frame(X), {
 dev.off()
 
 # create a similarity matrix using urerf
-sM <- (urerf(X, numtrees, depth=depth))
+sM <- (urerf(X, numtrees, K=k))
+#sM <- (urerf(X, numtrees, depth=depth))
 
 clusters <- cluster(sM, 2)
 
 png(file="results/ex10_Two3dswissRollClustered.png")
 with(data.frame(X), {
    scatterplot3d(x2, x3, x1,        # x y and z axis
+                 color=clusters, pch=19, # filled blue circles
+                 main="",
+                 #main="Split 3-D Swiss Roll Calculated Two Clusters",
+                 xlab="X",
+                 ylab="Y",
+                 zlab="Z")
+})
+dev.off()
+
+
+
+
+
+# number of trees for forest
+numtrees <- 100
+# number of samples in dataset
+sizeD <- 1000
+# the 'k' of k nearest neighbors
+depth = 8
+k = round(sizeD^.5)
+set.seed(20)
+
+plane1 <- cbind(sort(runif(sizeD/2, 0,1)), sort(runif(sizeD/2, 0,1)), runif(sizeD/2,0,1))
+plane2 <- cbind(sort(runif(sizeD/2, 0,1), decreasing=TRUE), sort(runif(sizeD/2, 0,1)), runif(sizeD/2,0,1))
+# create a sizeD by m synthetic dataset
+X <- rbind(plane1, plane2)
+X <- as.matrix(X)
+#X <- X[order(X[,3], X[,1], X[,2]),]
+
+#X[1:(sizeD/2),] <- X[1:(sizeD/2),]-3
+
+actualClusters <- c(rep(1,sizeD/2), rep(2,sizeD/2))
+
+#create output
+png(file="results/ex10_TwoPlanes.png")
+with(data.frame(X), {
+   scatterplot3d(X2, X3, X1,        # x y and z axis
+                 color=actualClusters, pch=19, # filled blue circles
+                 main="Split 3-D Swiss Roll Actual Two Clusters",
+                 xlab="X",
+                 ylab="Y",
+                 zlab="Z")
+})
+dev.off()
+
+# create a similarity matrix using urerf
+sM <- (urerf(X, numtrees, K=3))
+#sM <- (urerf(X, numtrees, depth=depth))
+
+clusters <- cluster(sM, 2)
+
+png(file="results/ex10_TwoPlanesClustered.png")
+with(data.frame(X), {
+   scatterplot3d(X2, X3, X1,        # x y and z axis
                  color=clusters, pch=19, # filled blue circles
                  main="Split 3-D Swiss Roll Calculated Two Clusters",
                  xlab="X",

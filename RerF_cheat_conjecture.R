@@ -13,8 +13,8 @@ pdf(file="noiseTest.pdf")
 
 
 num_of_points=1000
-num_of_trees =  200
-knn=33
+num_of_trees = 100 
+knn=round(num_of_points^.5)
 maxNoiseDims <-4
 
 set.seed(9)
@@ -113,7 +113,7 @@ for (gaus in c(TRUE, FALSE)){
 		rownames(high_dim_noise_data) <- c()
 		colnames(high_dim_noise_data) <- c()
 
-		Rerf_W_uncheat = urerf(normalizeData(high_dim_noise_data), num_of_trees, K=knn)$similarityMatrix
+		Rerf_W_uncheat = urerf(high_dim_noise_data, num_of_trees, K=knn)$similarityMatrix
 
 		if(gaus){
 			nType <- "Gaussian"
