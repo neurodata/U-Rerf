@@ -1,10 +1,53 @@
 require(compiler)
+require(mclust)
+require(stats4)
 setCompilerOptions(optimize=3)
 enableJIT(3)
 
 ############################################################################
 
-TwoMeansCut <- function(X){
+BICCut <- function(X){
+  print("enter twomeans")
+  X_data = data.frame(X)
+  num_elements = (length(unique(X)))
+  null_vec = c(NULL, NULL)
+  if (num_elements <= 1 )
+    return (null_vec)
+
+  BIC <- mclustBIC(X_data, G=2, warn=TRUE, verbose=FALSE )
+  mod1 <- Mclust(data.frame(X), G=2, x=BIC, verbose=FALSE)
+
+  #if one wants to use AIC instead of BIC
+  aic <- 2*mod1$df - 2*mod1$loglik
+
+  if (!is.null(mod1) && !is.na(mod1)){
+    #Group the elements according to the cluster they belong to.
+    #Then sort the elements in each cluster.
+    X_data["classi"] <- mod1["classification"]
+    X_1 = data.frame(dplyr::filter(X_data, classi==1))
+    X_1_sorted <- X_1[order(X_1$X),]
+    X_2 = data.frame(dplyr::filter(X_data, classi==2))
+    X_2_sorted <- X_2[order(X_2$X),]
+    if(nrow(X_1) == 0)
+      return (null_vec)
+    if(nrow(X_2) == 0)
+      return (null_vec)
+
+    #Determine the cutpoint
+    cutpt1 = tail(X_1_sorted["X"], n=1)["X"]
+    cutpt2 = tail(X_2_sorted["X"], n=1)["X"]
+    BIC_score = BIC[1][1]
+    cutpt = min(cutpt1, cutpt2)
+
+    return(c(cutpt, BIC_score))
+  }
+  return (null_vec)
+
+}
+
+
+TwoMeansCut <- function(X, X_all){
+
 		minVal <- min(X)
 		maxVal <- max(X)
 		if(minVal == maxVal){ return(NULL)}
@@ -69,7 +112,7 @@ checkInputMatrix <- function(X){
 
 
 ############################################################################
-GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replacement=TRUE, FUN=makeAB, options=c(ncol(X), round(ncol(X)^.5),1L, 1/ncol(X)), COOB=TRUE, Progress=TRUE){
+GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replacement=TRUE, FUN=makeAB, options=c(ncol(X), round(ncol(X)^.5),1L, 1/ncol(X)), COOB=TRUE, Progress=TRUE, loss="twomeans", algo="regular"){
 
 	############# Start Growing Forest #################
 
@@ -140,20 +183,20 @@ GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", ba
 				Assigned2Node[[1]] <- ind
 			}else{
 				ind[1:perBag] <- sample(1:w, perBag, replace = FALSE)
-				Assigned2Node[[1]] <- ind[1:perBag]        
+				Assigned2Node[[1]] <- ind[1:perBag]
 			}
 		}else{
-			Assigned2Node[[1]] <- 1:w        
+			Assigned2Node[[1]] <- 1:w
 		}
 		Assigned2Bag[[1]] <- 1:w
 		# main loop over nodes
 		while (CurrentNode < NextUnusedNode && CurrentNode < StopNode){
 			# determine working samples for current node.
-			NodeRows <- Assigned2Node[CurrentNode] 
+			NodeRows <- Assigned2Node[CurrentNode]
 			Assigned2Node[[CurrentNode]]<-NA #remove saved indexes
 			NdSize <- length(NodeRows[[1L]]) #determine node size
 
-			sparseM <- FUN(options)
+			sparseM <- FUN(options, algo=algo)
 
 			if (NdSize < MinParent || NDepth[CurrentNode]==MaxDepth || NextUnusedNode+1L >= StopNode || NdSize == 1){
 				Assigned2Leaf[[CurrentNode]] <- Assigned2Bag[[CurrentNode]]
@@ -163,19 +206,24 @@ GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", ba
 				if(is.na(CurrentNode)){
 					break
 				}
-				next 
+				next
 			}
 			min_error <- Inf
 			cut_val <- 1
-			BestVar <- 1 
+			BestVar <- 1
 
 			# nBest <- 1L
 			for(q in unique(sparseM[,2])){
 				#Project input into new space
 				lrows <- which(sparseM[,2]==q)
 				Xnode[1:NdSize] <- X[NodeRows[[1L]],sparseM[lrows,1], drop=FALSE]%*%sparseM[lrows,3, drop=FALSE]
-				#Sort the projection, Xnode, and rearrange Y accordingly
-				results <- TwoMeansCut(Xnode[1:NdSize])
+        if (loss == "twomeans"){
+          results <- TwoMeansCut(Xnode[1:NdSize], X[NodeRows[[1L]],])
+        }
+				else {
+				  results <- BICCut(Xnode[1:NdSize])
+				}
+
 				if (is.null(results)) next
 
 				if(results[2] < min_error){
@@ -293,7 +341,7 @@ GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", ba
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-	makeAB <- function(options){
+	makeAB <- function(options, algo){
 		p <- options[[1L]]
 		d <- options[[2L]]
 		method <- options[[3L]]
@@ -303,15 +351,22 @@ GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", ba
 			sparseM <- matrix(0L, nrow=p, ncol=d)
 			featuresToTry <- sample(1:p,d,replace=FALSE)
 			# the commented line below creates linear combinations of features to try
-      #	sparseM[sample(1L:(p*d),nnzs, replace=F)]<-sample(c(1L,-1L),nnzs,replace=TRUE)
-			# the for loop below creates a standard random forest set of features to try
-			for(j in 1:d){
-sparseM[featuresToTry[j],j] <- 1
+			if (algo=="randomer"){
+			  #print('randomer')
+        sparseM[sample(1L:(p*d), nnzs, replace=F)]<-sample(c(1L,-1L),nnzs,replace=TRUE)
+			}
+			else
+			{
+			  #print('regular')
+  			# the for loop below creates a standard random forest set of features to try
+  			for(j in 1:d){
+          sparseM[featuresToTry[j],j] <- 1
+  			}
 			}
 		}
 		#The below returns a matrix after removing zero columns in sparseM.
 		ind<- which(sparseM!=0,arr.ind=TRUE)
-		return(cbind(ind,sparseM[ind]))        
+		return(cbind(ind,sparseM[ind]))
 	}
 
 
@@ -319,7 +374,10 @@ sparseM[featuresToTry[j],j] <- 1
 ### Create Urerf Object - MinParent ###
 #######################################
 
-urerf <- function(X, numTrees=100, K=round(nrow(X)^.5), depth=NA, mtry=round(ncol(X)^.5), normalizeData=TRUE){
+urerf <- function(X, numTrees=100, K=round(nrow(X)^.5), depth=NA, mtry=round(ncol(X)^.5), normalizeData=TRUE, loss="twomeans", algo="regular", sample=FALSE){
+  #Params
+  #loss: 'twomeans' or 'bic'
+  #algo: 'regular' or 'randomer'
 
 	normalizeTheData <- function(X, normData){
 		if (normData){
@@ -372,11 +430,11 @@ colMin <- 0
 	X <- normalizeTheData(X,normalizeData)
 	GrowUnsupervisedForest <- cmpfun(GrowUnsupervisedForest)
 
-	forest <- 
+	forest <-
 		if(is.na(depth)){
-			GrowUnsupervisedForest(X,trees=numTrees, MinParent=K, options=c(ncol(X), mtry,1L, 1/ncol(X)))
+			GrowUnsupervisedForest(X_sampled,trees=numTrees, MinParent=K, options=c(ncol(X), mtry,1L, 1/ncol(X)), loss=loss, algo=algo)
 		}else{
-			GrowUnsupervisedForest(X,trees=numTrees, MinParent=K, MaxDepth=depth,options=c(ncol(X), mtry,1L, 1/ncol(X)))
+			GrowUnsupervisedForest(X_sampled,trees=numTrees, MinParent=K, MaxDepth=depth,options=c(ncol(X), mtry,1L, 1/ncol(X)),  loss=loss, algo=algo)
 		}
 
 	sM <- createMatrixFromForest(forest)
