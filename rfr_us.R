@@ -6,7 +6,8 @@ enableJIT(3)
 
 
 ############################################################################
-GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replacement=TRUE, FUN=makeAB, options=c(ncol(X), round(ncol(X)^.5),1L, 1/ncol(X)), COOB=TRUE, Progress=TRUE){
+#GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replacement=TRUE, FUN=makeAB, options=c(ncol(X), round(ncol(X)^.5),1L, 1/ncol(X)), COOB=TRUE, Progress=TRUE){
+GrowUnsupervisedForest <- function(X, MinParent=1, trees=100, MaxDepth="inf", bagging=.2, replacement=TRUE, FUN=makeAB, options=c(ncol(X), 10,1L, 1/ncol(X)), COOB=TRUE, Progress=TRUE){
 
 	TwoMeansCut <- function(X){
 		minVal <- min(X)
@@ -612,6 +613,21 @@ swissRoll <- function(n1, n2 = NULL, size = 6, dim3 = FALSE, rand_dist_fun = NUL
 }
 
 
-
-
+feature.use <- function(urerf){
+	fUse <- integer()
+	for(i in 1:length(urerf$forest)){
+		for(j in 1:length(urerf$forest[[i]]$matA)){
+			if(!is.null(urerf$forest[[i]]$matA[[j]])){
+				numFeatures <- length(urerf$forest[[i]]$matA[[j]])/2
+			for(feature in 0:(numFeatures-1)){	
+				if(is.na(fUse[urerf$forest[[i]]$matA[[j]][feature*2+1]])){
+					fUse[urerf$forest[[i]]$matA[[j]][feature*2+1]] <- 0
+				}
+				fUse[urerf$forest[[i]]$matA[[j]][feature*2+1]] <- fUse[urerf$forest[[i]]$matA[[j]][feature*2+1]] +1
+	}
+			}
+		}
+	}
+	fUse
+}
 
