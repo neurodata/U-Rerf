@@ -28,7 +28,7 @@ k <- 10
 # set max depth
 depth <- 4
 
-# create a sizeD by m synthetic dataset
+# create a size D by m synthetic dataset
 X <- as.matrix(iris[,1:4])
 
 # create a urerf structure which includes the forest and similarity matrix
